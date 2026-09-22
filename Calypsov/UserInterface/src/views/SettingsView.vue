@@ -1,15 +1,19 @@
 <script setup lang="ts">
 import { ref } from 'vue'
 import { useTargetsStore, type TargetCategory } from '@/stores/targets'
+import { pickFile, pickFolder } from '@/services/dialogApi'
 import IconFolder from '@/components/icons/IconFolder.vue'
 import IconFile from '@/components/icons/IconFile.vue'
 import IconTrash from '@/components/icons/IconTrash.vue'
+import IconClipboard from '@/components/icons/IconClipboard.vue'
+import IconFolderOpen from '@/components/icons/IconFolderOpen.vue'
 
 const targets = useTargetsStore()
 
 const category = ref<TargetCategory>('folder')
 const path = ref('')
 const error = ref('')
+const browsing = ref(false)
 
 async function handleAdd() {
   const result = await targets.add(category.value, path.value)
@@ -19,6 +23,33 @@ async function handleAdd() {
   }
   error.value = ''
   path.value = ''
+}
+
+async function handlePaste() {
+  try {
+    const text = (await navigator.clipboard.readText()).trim()
+    if (text) {
+      path.value = text
+      error.value = ''
+    }
+  } catch {
+    error.value = 'Could not read from the clipboard.'
+  }
+}
+
+async function handleBrowse() {
+  browsing.value = true
+  try {
+    const result = category.value === 'folder' ? await pickFolder() : await pickFile()
+    if (result.path) {
+      path.value = result.path
+      error.value = ''
+    }
+  } catch {
+    error.value = 'Could not open the picker.'
+  } finally {
+    browsing.value = false
+  }
 }
 </script>
 
@@ -63,6 +94,31 @@ async function handleAdd() {
         />
       </div>
 
+      <div class="flex flex-col gap-1.5">
+        <span class="text-xs font-semibold text-transparent select-none">Actions</span>
+        <div class="flex gap-2">
+          <button
+            type="button"
+            title="Paste from clipboard"
+            aria-label="Paste from clipboard"
+            class="flex h-10.5 w-10.5 items-center justify-center rounded-lg border border-white/10 bg-neutral-950 text-neutral-400 transition-colors hover:border-teal-400/60 hover:text-teal-300"
+            @click="handlePaste"
+          >
+            <IconClipboard class="h-4 w-4" />
+          </button>
+          <button
+            type="button"
+            title="Browse…"
+            aria-label="Browse for a path"
+            :disabled="browsing"
+            class="flex h-10.5 w-10.5 items-center justify-center rounded-lg border border-white/10 bg-neutral-950 text-neutral-400 transition-colors hover:border-teal-400/60 hover:text-teal-300 disabled:opacity-50"
+            @click="handleBrowse"
+          >
+            <IconFolderOpen class="h-4 w-4" />
+          </button>
+        </div>
+      </div>
+
       <button
         type="submit"
         class="rounded-full bg-teal-400 px-6 py-2.5 text-sm font-semibold text-neutral-950 transition-colors hover:bg-teal-300"
@@ -86,7 +142,7 @@ async function handleAdd() {
             :key="t.id"
             class="flex items-center gap-3 rounded-lg bg-neutral-950 px-3 py-2.5"
           >
-            <IconFolder class="h-[18px] w-[18px] shrink-0 text-neutral-500" />
+            <IconFolder class="h-4.5 w-4.5 shrink-0 text-neutral-500" />
             <span class="flex-1 text-sm break-all text-neutral-200">{{ t.path }}</span>
             <button
               type="button"
@@ -114,7 +170,7 @@ async function handleAdd() {
             :key="t.id"
             class="flex items-center gap-3 rounded-lg bg-neutral-950 px-3 py-2.5"
           >
-            <IconFile class="h-[18px] w-[18px] shrink-0 text-neutral-500" />
+            <IconFile class="h-4.5 w-4.5 shrink-0 text-neutral-500" />
             <span class="flex-1 text-sm break-all text-neutral-200">{{ t.path }}</span>
             <button
               type="button"

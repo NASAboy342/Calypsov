@@ -11,7 +11,23 @@ public class StorageEncryptionSettingsService : IEncryptionSettingsService
     private readonly object _lockFile = new();
     public EncryptionTarget AddTarget(string category, string path)
     {
-        throw new NotImplementedException();
+        var newTargetToAdd = new EncryptionTarget(Guid.NewGuid(), category, path);
+        lock (_lock)
+        {
+            var appSetting = GetAppSetting();
+            CheckIfTargetAlreadyAddBefore(category, path, appSetting);
+            appSetting.EncryptionTargets.Add(newTargetToAdd);
+            SaveAppSetting();
+        }
+        return newTargetToAdd;
+    }
+
+    private static void CheckIfTargetAlreadyAddBefore(string category, string path, AppSetting appSetting)
+    {
+        if (appSetting.EncryptionTargets.Any(t => t.Category.Equals(category) && t.Path.Equals(path)))
+        {
+            throw new Exception("EncryptionTarget already set. Will not add duplicated one");
+        }
     }
 
     public IReadOnlyList<EncryptionTarget> GetTargets()

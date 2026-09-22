@@ -21,11 +21,11 @@ const activeLinkClass = 'bg-teal-400/10 text-teal-300'
 
     <nav class="flex flex-col gap-1">
       <RouterLink to="/" :class="linkClass" :active-class="activeLinkClass">
-        <IconHome class="h-[18px] w-[18px] shrink-0" />
+        <IconHome class="h-4.5 w-4.5 shrink-0" />
         <span>Home</span>
       </RouterLink>
       <RouterLink to="/settings" :class="linkClass" :active-class="activeLinkClass">
-        <IconSettings class="h-[18px] w-[18px] shrink-0" />
+        <IconSettings class="h-4.5 w-4.5 shrink-0" />
         <span>Settings</span>
       </RouterLink>
     </nav>

@@ -26,8 +26,6 @@ class Program
 
         app.MapEncryptionEndpoints(encryptionSettings);
 
-        app.RunAsync();
-
         // The appUrl is set to the local development server when in debug mode.
         // This helps with hot reloading and debugging.
         string appUrl = IsDebugMode ? "http://localhost:5173" : $"{baseUrl}/index.html";
@@ -36,7 +34,9 @@ class Program
         // Window title declared here for visibility
         string windowTitle = "Calypsov";
 
-        // Creating a new PhotinoWindow instance with the fluent API
+        // Creating a new PhotinoWindow instance with the fluent API.
+        // .Load(appUrl) is called separately below, once the server is running,
+        // so the dialog endpoints can be mapped against this window first.
         var window = new PhotinoWindow()
             .SetTitle(windowTitle)
             // Window/taskbar icon (Windows + Linux; no-op on macOS, which instead
@@ -77,9 +77,14 @@ class Program
                 // Send a message back the to JavaScript event handler.
                 // "window.external.receiveMessage(callback: Function)"
                 window.SendWebMessage(response);
-            })
-            .Load(appUrl); // Can be used with relative path strings or "new URI()" instance to load a website.
- 
+            });
+
+        app.MapDialogEndpoints(window);
+
+        app.RunAsync();
+
+        window.Load(appUrl); // Can be used with relative path strings or "new URI()" instance to load a website.
+
         window.WaitForClose(); // Starts the application event loop
     }
 }
