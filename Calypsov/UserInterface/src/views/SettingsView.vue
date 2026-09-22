@@ -54,7 +54,7 @@ async function handleBrowse() {
 </script>
 
 <template>
-  <div class="mx-auto max-w-3xl">
+  <div class="mx-auto max-w-5xl">
     <header class="mb-8">
       <p class="mb-2 text-xs font-semibold tracking-[0.2em] text-teal-400 uppercase">Configuration</p>
       <h1 class="text-2xl font-bold text-neutral-50">Settings</h1>
@@ -62,73 +62,72 @@ async function handleBrowse() {
     </header>
 
     <form
-      class="mb-3 flex flex-wrap items-end gap-4 rounded-2xl border border-white/10 bg-neutral-900 p-5"
+      class="mb-6 flex flex-wrap items-end gap-4 rounded-2xl border border-white/10 bg-neutral-900 p-5"
       @submit.prevent="handleAdd"
     >
-      <div class="flex flex-col gap-1.5">
+      <div class="flex w-36 flex-col gap-1.5">
         <label for="category" class="text-xs font-semibold text-neutral-400">Category</label>
         <select
           id="category"
           v-model="category"
-          class="rounded-lg border border-white/10 bg-neutral-950 px-3 py-2.5 text-sm text-neutral-100 focus:border-teal-400 focus:ring-2 focus:ring-teal-400/40 focus:outline-none"
+          class="h-10.5 rounded-lg border border-white/10 bg-neutral-950 px-3 text-sm text-neutral-100 focus:border-teal-400 focus:ring-2 focus:ring-teal-400/40 focus:outline-none"
         >
           <option value="folder">Folder</option>
           <option value="file">File</option>
         </select>
       </div>
 
-      <div class="flex min-w-55 flex-1 flex-col gap-1.5">
+      <div class="flex min-w-70 flex-1 flex-col gap-1.5">
         <label for="path" class="text-xs font-semibold text-neutral-400">
           {{ category === 'folder' ? 'Folder path' : 'File path' }}
         </label>
-        <input
-          id="path"
-          v-model="path"
-          type="text"
-          :placeholder="
-            category === 'folder'
-              ? '/Users/you/Documents/Projects'
-              : '/Users/you/Documents/report.pdf'
-          "
-          class="rounded-lg border border-white/10 bg-neutral-950 px-3 py-2.5 text-sm text-neutral-100 placeholder:text-neutral-600 focus:border-teal-400 focus:ring-2 focus:ring-teal-400/40 focus:outline-none"
-        />
-      </div>
-
-      <div class="flex flex-col gap-1.5">
-        <span class="text-xs font-semibold text-transparent select-none">Actions</span>
-        <div class="flex gap-2">
-          <button
-            type="button"
-            title="Paste from clipboard"
-            aria-label="Paste from clipboard"
-            class="flex h-10.5 w-10.5 items-center justify-center rounded-lg border border-white/10 bg-neutral-950 text-neutral-400 transition-colors hover:border-teal-400/60 hover:text-teal-300"
-            @click="handlePaste"
-          >
-            <IconClipboard class="h-4 w-4" />
-          </button>
-          <button
-            type="button"
-            title="Browse…"
-            aria-label="Browse for a path"
-            :disabled="browsing"
-            class="flex h-10.5 w-10.5 items-center justify-center rounded-lg border border-white/10 bg-neutral-950 text-neutral-400 transition-colors hover:border-teal-400/60 hover:text-teal-300 disabled:opacity-50"
-            @click="handleBrowse"
-          >
-            <IconFolderOpen class="h-4 w-4" />
-          </button>
+        <div class="relative">
+          <input
+            id="path"
+            v-model="path"
+            type="text"
+            :placeholder="
+              category === 'folder'
+                ? '/Users/you/Documents/Projects'
+                : '/Users/you/Documents/report.pdf'
+            "
+            class="h-10.5 w-full rounded-lg border border-white/10 bg-neutral-950 px-3 pr-20 text-sm text-neutral-100 placeholder:text-neutral-600 focus:border-teal-400 focus:ring-2 focus:ring-teal-400/40 focus:outline-none"
+          />
+          <div class="absolute inset-y-0 right-1.5 flex items-center gap-1">
+            <button
+              type="button"
+              title="Paste from clipboard"
+              aria-label="Paste from clipboard"
+              class="flex h-7 w-7 items-center justify-center rounded-md text-neutral-500 transition-colors hover:bg-white/10 hover:text-teal-300"
+              @click="handlePaste"
+            >
+              <IconClipboard class="h-4 w-4" />
+            </button>
+            <button
+              type="button"
+              title="Browse…"
+              aria-label="Browse for a path"
+              :disabled="browsing"
+              class="flex h-7 w-7 items-center justify-center rounded-md text-neutral-500 transition-colors hover:bg-white/10 hover:text-teal-300 disabled:opacity-50"
+              @click="handleBrowse"
+            >
+              <IconFolderOpen class="h-4 w-4" />
+            </button>
+          </div>
         </div>
       </div>
 
       <button
         type="submit"
-        class="rounded-full bg-teal-400 px-6 py-2.5 text-sm font-semibold text-neutral-950 transition-colors hover:bg-teal-300"
+        class="h-10.5 rounded-lg bg-teal-400 px-6 text-sm font-semibold text-neutral-950 transition-colors hover:bg-teal-300"
       >
         Add
       </button>
-    </form>
-    <p v-if="error" class="mb-5 text-sm text-red-400">{{ error }}</p>
 
-    <div class="mt-6 grid gap-5">
+      <p v-if="error" class="w-full text-sm text-red-400">{{ error }}</p>
+    </form>
+
+    <div class="grid gap-5 sm:grid-cols-2">
       <section class="rounded-2xl border border-white/10 bg-neutral-900 p-5">
         <h2 class="mb-3 flex items-center gap-2 text-[15px] font-semibold text-neutral-100">
           Folders
