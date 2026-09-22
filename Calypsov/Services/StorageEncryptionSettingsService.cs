@@ -143,6 +143,7 @@ public class StorageEncryptionSettingsService : IEncryptionSettingsService
             var appSetting = GetAppSetting();
             appSetting.IsEncrypted = !appSetting.IsEncrypted;
             SaveAppSetting();
+            Task.Delay(TimeSpan.FromSeconds(3)).Wait(); // simulate encryption process
         }
         return GetAppSetting().IsEncrypted;
     }

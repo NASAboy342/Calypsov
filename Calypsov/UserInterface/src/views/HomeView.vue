@@ -1,10 +1,34 @@
 <script setup lang="ts">
+import { computed } from 'vue'
 import { RouterLink } from 'vue-router'
 import { useEncryptionStore } from '@/stores/encryption'
 import { useTargetsStore } from '@/stores/targets'
 
 const encryption = useEncryptionStore()
 const targets = useTargetsStore()
+
+const ringClass = computed(() => {
+  if (encryption.toggling) {
+    return 'animate-pulse border-amber-400/70 shadow-[0_0_30px_-8px_rgba(251,191,36,0.6)]'
+  }
+  return encryption.enabled
+    ? 'border-teal-400 shadow-[0_0_40px_-6px_rgba(45,212,191,0.65)]'
+    : 'border-neutral-700'
+})
+
+const handWrapperClass = computed(() =>
+  encryption.toggling ? 'animate-spin' : encryption.enabled ? 'rotate-0' : 'rotate-180',
+)
+
+const handClass = computed(() => {
+  if (encryption.toggling) return 'bg-amber-300 shadow-[0_0_10px_rgba(251,191,36,0.9)]'
+  return encryption.enabled ? 'bg-teal-400 shadow-[0_0_10px_rgba(45,212,191,0.9)]' : 'bg-neutral-600'
+})
+
+const dotClass = computed(() => {
+  if (encryption.toggling) return 'bg-amber-300'
+  return encryption.enabled ? 'bg-teal-400' : 'bg-neutral-700'
+})
 </script>
 
 <template>
@@ -58,35 +82,39 @@ const targets = useTargetsStore()
           type="button"
           role="switch"
           :aria-checked="encryption.enabled"
+          :aria-busy="encryption.toggling"
           aria-label="Toggle encryption"
-          class="relative h-24 w-24 shrink-0 rounded-full border-2 bg-neutral-900 transition-all duration-300"
-          :class="
-            encryption.enabled
-              ? 'border-teal-400 shadow-[0_0_40px_-6px_rgba(45,212,191,0.65)]'
-              : 'border-neutral-700'
-          "
+          :disabled="encryption.toggling"
+          class="relative h-24 w-24 shrink-0 rounded-full border-2 bg-neutral-900 transition-all duration-300 disabled:cursor-wait"
+          :class="ringClass"
           @click="encryption.toggle()"
         >
           <span
-            class="absolute inset-0 flex justify-center transition-transform duration-300"
-            :class="encryption.enabled ? 'rotate-0' : 'rotate-180'"
+            class="absolute inset-0 flex justify-center"
+            :class="[handWrapperClass, !encryption.toggling && 'transition-transform duration-300']"
           >
-            <span
-              class="mt-3 h-7 w-1 rounded-full transition-colors duration-300"
-              :class="encryption.enabled ? 'bg-teal-400 shadow-[0_0_10px_rgba(45,212,191,0.9)]' : 'bg-neutral-600'"
-            />
+            <span class="mt-3 h-7 w-1 rounded-full transition-colors duration-300" :class="handClass" />
           </span>
-          <span
-            class="absolute inset-0 m-auto h-3 w-3 rounded-full transition-colors duration-300"
-            :class="encryption.enabled ? 'bg-teal-400' : 'bg-neutral-700'"
-          />
+          <span class="absolute inset-0 m-auto h-3 w-3 rounded-full transition-colors duration-300" :class="dotClass" />
         </button>
 
         <p class="text-sm text-neutral-400">
-          Encrypt:
-          <strong class="font-semibold" :class="encryption.enabled ? 'text-teal-300' : 'text-neutral-200'">
-            {{ encryption.enabled ? 'On' : 'Off' }}
-          </strong>
+          <template v-if="encryption.toggling">
+            <span class="inline-flex items-center gap-1.5 text-amber-300">
+              <span class="h-1.5 w-1.5 animate-pulse rounded-full bg-amber-300" />
+              Updating…
+            </span>
+          </template>
+          <template v-else>
+            Encrypt:
+            <strong class="font-semibold" :class="encryption.enabled ? 'text-teal-300' : 'text-neutral-200'">
+              {{ encryption.enabled ? 'On' : 'Off' }}
+            </strong>
+          </template>
+        </p>
+
+        <p v-if="encryption.error" class="max-w-56 text-center text-sm text-red-400">
+          {{ encryption.error }}
         </p>
       </div>
     </div>

@@ -14,32 +14,42 @@ public static class EncryptionEndpoints
         var group = app.MapGroup("/api/encryption");
 
         group.MapGet("/status", () =>
-            Results.Ok(new EncryptionStatusResponse(settings.IsEncryptionEnabled())));
+            Try(() => Results.Ok(new EncryptionStatusResponse(settings.IsEncryptionEnabled()))));
 
         group.MapPost("/toggle", () =>
-            Results.Ok(new EncryptionStatusResponse(settings.ToggleEncryption())));
+            Try(() =>Results.Ok(new EncryptionStatusResponse(settings.ToggleEncryption()))));
 
         group.MapGet("/targets", () =>
-            Results.Ok(settings.GetTargets()));
+            Try(() => Results.Ok(settings.GetTargets())));
 
         group.MapPost("/targets", (AddTargetRequest request) =>
-        {
-            try
-            {
-                var target = settings.AddTarget(request.Category, request.Path);
-                return Results.Ok(target);
-            }
-            catch (ArgumentException ex)
-            {
-                return Results.BadRequest(new ErrorResponse(ex.Message));
-            }
-            catch (InvalidOperationException ex)
-            {
-                return Results.Conflict(new ErrorResponse(ex.Message));
-            }
-        });
+            Try(() => Results.Ok(settings.AddTarget(request.Category, request.Path))));
 
         group.MapDelete("/targets/{id:guid}", (Guid id) =>
-            settings.RemoveTarget(id) ? Results.NoContent() : Results.NotFound());
+            Try(() => settings.RemoveTarget(id) ? Results.NoContent() : Results.NotFound()));
+    }
+
+    /// <summary>
+    /// Runs an endpoint body and turns any exception into a JSON <see cref="ErrorResponse"/> with the
+    /// exact exception message, so the UI can show the caller exactly what the backend reported.
+    /// </summary>
+    private static IResult Try(Func<IResult> body)
+    {
+        try
+        {
+            return body();
+        }
+        catch (ArgumentException ex)
+        {
+            return Results.BadRequest(new ErrorResponse(ex.Message));
+        }
+        catch (InvalidOperationException ex)
+        {
+            return Results.Conflict(new ErrorResponse(ex.Message));
+        }
+        catch (Exception ex)
+        {
+            return Results.Json(new ErrorResponse(ex.Message), statusCode: StatusCodes.Status500InternalServerError);
+        }
     }
 }
