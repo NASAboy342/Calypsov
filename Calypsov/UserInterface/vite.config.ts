@@ -16,5 +16,16 @@ export default defineConfig({
     alias: {
       '@': fileURLToPath(new URL('./src', import.meta.url))
     }
-  }
+  },
+  server: {
+    // Forward API calls to the .NET/Photino backend so the frontend can always
+    // call relative "/api/..." paths, in dev (this proxy) and in production
+    // (same origin, since Photino serves the built UI itself).
+    proxy: {
+      '/api': {
+        target: 'http://localhost:8000',
+        changeOrigin: true,
+      },
+    },
+  },
 })

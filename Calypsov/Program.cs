@@ -2,6 +2,9 @@ using Photino.NET;
 using Photino.NET.Server;
 using System.Drawing;
 using System.Text;
+using Calypsov.Api;
+using Calypsov.Services;
+using Microsoft.Extensions.Caching.Memory;
 
 namespace Calypsov;
 //NOTE: To hide the console window, go to the project properties and change the Output Type to Windows Application.
@@ -13,9 +16,16 @@ class Program
     [STAThread]
     static void Main(string[] args)
     {
-        PhotinoServer
-            .CreateStaticFileServer(args, out string baseUrl)
-            .RunAsync();
+        var app = PhotinoServer.CreateStaticFileServer(args, out string baseUrl);
+
+        // In-memory-backed for now; swap the storage or add real encrypt/decrypt
+        // logic behind this interface later without touching the API surface below.
+        IEncryptionSettingsService encryptionSettings =
+            new EncryptionSettingsService(new MemoryCache(new MemoryCacheOptions()));
+
+        app.MapEncryptionEndpoints(encryptionSettings);
+
+        app.RunAsync();
 
         // The appUrl is set to the local development server when in debug mode.
         // This helps with hot reloading and debugging.

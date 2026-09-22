@@ -1,6 +1,17 @@
 <script setup lang="ts">
+import { onMounted } from 'vue'
 import { RouterView } from 'vue-router'
 import AppSidebar from '@/components/AppSidebar.vue'
+import { useEncryptionStore } from '@/stores/encryption'
+import { useTargetsStore } from '@/stores/targets'
+
+const encryption = useEncryptionStore()
+const targets = useTargetsStore()
+
+onMounted(() => {
+  encryption.fetchStatus()
+  targets.fetchTargets()
+})
 </script>
 
 <template>

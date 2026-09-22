@@ -11,8 +11,8 @@ const category = ref<TargetCategory>('folder')
 const path = ref('')
 const error = ref('')
 
-function handleAdd() {
-  const result = targets.add(category.value, path.value)
+async function handleAdd() {
+  const result = await targets.add(category.value, path.value)
   if (result) {
     error.value = result
     return

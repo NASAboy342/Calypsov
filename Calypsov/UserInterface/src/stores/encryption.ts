@@ -1,23 +1,23 @@
-import { ref, watch } from 'vue'
+import { ref } from 'vue'
 import { defineStore } from 'pinia'
-
-const STORAGE_KEY = 'calypsov:encryption-enabled'
-
-function loadEnabled(): boolean {
-  if (typeof localStorage === 'undefined') return false
-  return localStorage.getItem(STORAGE_KEY) === 'true'
-}
+import { getStatus, toggleStatus } from '@/services/encryptionApi'
 
 export const useEncryptionStore = defineStore('encryption', () => {
-  const enabled = ref(loadEnabled())
+  const enabled = ref(false)
+  const loading = ref(true)
 
-  watch(enabled, (value) => {
-    localStorage.setItem(STORAGE_KEY, String(value))
-  })
-
-  function toggle() {
-    enabled.value = !enabled.value
+  async function fetchStatus() {
+    loading.value = true
+    try {
+      enabled.value = (await getStatus()).enabled
+    } finally {
+      loading.value = false
+    }
   }
 
-  return { enabled, toggle }
+  async function toggle() {
+    enabled.value = (await toggleStatus()).enabled
+  }
+
+  return { enabled, loading, fetchStatus, toggle }
 })
