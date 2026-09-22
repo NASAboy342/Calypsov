@@ -1,0 +1,29 @@
+Microsoft Visual Studio Solution File, Format Version 12.00
+# Visual Studio Version 17
+VisualStudioVersion = 17.5.2.0
+MinimumVisualStudioVersion = 10.0.40219.1
+Project("{2150E333-8FDC-42A3-9474-1A3956D46DE8}") = "Calypsov", "Calypsov", "{CDC46FA9-ABFD-C515-9282-C503A02E1584}"
+EndProject
+Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "Calypsov", "Calypsov\Calypsov.csproj", "{BEBCB6D9-6197-EB91-F127-03EE9CB8D224}"
+EndProject
+Global
+	GlobalSection(SolutionConfigurationPlatforms) = preSolution
+		Debug|Any CPU = Debug|Any CPU
+		Release|Any CPU = Release|Any CPU
+	EndGlobalSection
+	GlobalSection(ProjectConfigurationPlatforms) = postSolution
+		{BEBCB6D9-6197-EB91-F127-03EE9CB8D224}.Debug|Any CPU.ActiveCfg = Debug|Any CPU
+		{BEBCB6D9-6197-EB91-F127-03EE9CB8D224}.Debug|Any CPU.Build.0 = Debug|Any CPU
+		{BEBCB6D9-6197-EB91-F127-03EE9CB8D224}.Release|Any CPU.ActiveCfg = Release|Any CPU
+		{BEBCB6D9-6197-EB91-F127-03EE9CB8D224}.Release|Any CPU.Build.0 = Release|Any CPU
+	EndGlobalSection
+	GlobalSection(SolutionProperties) = preSolution
+		HideSolutionNode = FALSE
+	EndGlobalSection
+	GlobalSection(NestedProjects) = preSolution
+		{BEBCB6D9-6197-EB91-F127-03EE9CB8D224} = {CDC46FA9-ABFD-C515-9282-C503A02E1584}
+	EndGlobalSection
+	GlobalSection(ExtensibilityGlobals) = postSolution
+		SolutionGuid = {E42C6FDE-8E0F-470C-A022-6AB5FDDF6FE3}
+	EndGlobalSection
+EndGlobal

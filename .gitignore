@@ -1,0 +1,12 @@
+## .NET
+bin/
+obj/
+*.user
+
+## Node / Vue UI
+UserInterface/node_modules/
+UserInterface/dist/
+
+## OS
+.DS_Store
+Calypsov/UserInterface/node_modules/
