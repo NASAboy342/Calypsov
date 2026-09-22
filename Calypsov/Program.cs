@@ -21,7 +21,8 @@ class Program
         // In-memory-backed for now; swap the storage or add real encrypt/decrypt
         // logic behind this interface later without touching the API surface below.
         IEncryptionSettingsService encryptionSettings =
-            new EncryptionSettingsService(new MemoryCache(new MemoryCacheOptions()));
+            // new MemoryEncryptionSettingsService(new MemoryCache(new MemoryCacheOptions()));
+            new StorageEncryptionSettingsService();
 
         app.MapEncryptionEndpoints(encryptionSettings);
 

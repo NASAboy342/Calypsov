@@ -4,7 +4,7 @@ using Microsoft.Extensions.Caching.Memory;
 namespace Calypsov.Services;
 
 /// <inheritdoc cref="IEncryptionSettingsService"/>
-public sealed class EncryptionSettingsService : IEncryptionSettingsService
+public sealed class MemoryEncryptionSettingsService : IEncryptionSettingsService
 {
     private const string EnabledCacheKey = "encryption:enabled";
     private const string TargetsCacheKey = "encryption:targets";
@@ -14,7 +14,7 @@ public sealed class EncryptionSettingsService : IEncryptionSettingsService
     private readonly IMemoryCache _cache;
     private readonly object _lock = new();
 
-    public EncryptionSettingsService(IMemoryCache cache)
+    public MemoryEncryptionSettingsService(IMemoryCache cache)
     {
         _cache = cache;
     }
