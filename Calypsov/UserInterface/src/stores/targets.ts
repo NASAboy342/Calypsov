@@ -4,11 +4,12 @@ import {
   addTarget as apiAddTarget,
   getTargets,
   removeTarget as apiRemoveTarget,
+  EnumTargetCategory,
   type EncryptionTarget,
-  type TargetCategory,
 } from '@/services/encryptionApi'
 
-export type { EncryptionTarget, TargetCategory }
+export type { EncryptionTarget }
+export { EnumTargetCategory }
 
 export const useTargetsStore = defineStore('targets', () => {
   const items = ref<EncryptionTarget[]>([])
@@ -23,12 +24,12 @@ export const useTargetsStore = defineStore('targets', () => {
     }
   }
 
-  const folders = computed(() => items.value.filter((t) => t.category === 'folder'))
-  const files = computed(() => items.value.filter((t) => t.category === 'file'))
+  const folders = computed(() => items.value.filter((t) => t.category === EnumTargetCategory.Folder))
+  const files = computed(() => items.value.filter((t) => t.category === EnumTargetCategory.File))
   const count = computed(() => items.value.length)
 
   /** Returns an error message on failure, or null on success. */
-  async function add(category: TargetCategory, path: string): Promise<string | null> {
+  async function add(category: EnumTargetCategory, path: string): Promise<string | null> {
     if (!path.trim()) return 'Enter a path before adding.'
 
     try {

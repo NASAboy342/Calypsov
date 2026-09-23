@@ -1,4 +1,6 @@
 using System;
+using System.Diagnostics;
+using Calypsov.Helpers;
 using Calypsov.Models;
 using Newtonsoft.Json;
 
@@ -9,7 +11,11 @@ public class StorageEncryptionSettingsService : IEncryptionSettingsService
     private AppSetting? _appSetting;
     private readonly object _lock = new();
     private readonly object _lockFile = new();
-    public EncryptionTarget AddTarget(string category, string path)
+    private readonly object _lockEncryption = new();
+    private readonly string _encryptedFoldersFileName = "CalypsovFolders.zip";
+    private readonly string _encryptedFilesFileName = "CalypsovFiles.zip";
+
+    public EncryptionTarget AddTarget(EnumTargetCategory category, string path)
     {
         var newTargetToAdd = new EncryptionTarget(Guid.NewGuid(), category, path);
         lock (_lock)
@@ -22,9 +28,9 @@ public class StorageEncryptionSettingsService : IEncryptionSettingsService
         return newTargetToAdd;
     }
 
-    private static void CheckIfTargetAlreadyAddBefore(string category, string path, AppSetting appSetting)
+    private static void CheckIfTargetAlreadyAddBefore(EnumTargetCategory category, string path, AppSetting appSetting)
     {
-        if (appSetting.EncryptionTargets.Any(t => t.Category.Equals(category) && t.Path.Equals(path)))
+        if (appSetting.EncryptionTargets.Any(t => t.Category == category && t.Path.Equals(path)))
         {
             throw new Exception("EncryptionTarget already set. Will not add duplicated one");
         }
@@ -49,16 +55,24 @@ public class StorageEncryptionSettingsService : IEncryptionSettingsService
     {
         lock (_lockFile)
         {
-            var settingPath = GetSettingFilePath();
-            var json = File.ReadAllText(settingPath);
+            try
+            {
+                var settingPath = GetSettingFilePath();
+                var json = File.ReadAllText(settingPath);
 
-            if (string.IsNullOrWhiteSpace(json))
+                if (string.IsNullOrWhiteSpace(json))
+                {
+                    _appSetting = new AppSetting();
+                    return;
+                }
+
+                _appSetting = JsonConvert.DeserializeObject<AppSetting>(json);
+            }
+            catch
             {
                 _appSetting = new AppSetting();
-                return;
             }
-
-            _appSetting = JsonConvert.DeserializeObject<AppSetting>(json);
+            
         }
     }
 
@@ -141,10 +155,98 @@ public class StorageEncryptionSettingsService : IEncryptionSettingsService
         lock (_lock)
         {
             var appSetting = GetAppSetting();
+            if (!appSetting.IsEncrypted)
+            {
+                ProcessEncryption();
+            }
+            else
+            {
+                ProcessDecryption();
+            }
             appSetting.IsEncrypted = !appSetting.IsEncrypted;
             SaveAppSetting();
-            Task.Delay(TimeSpan.FromSeconds(3)).Wait(); // simulate encryption process
         }
         return GetAppSetting().IsEncrypted;
+    }
+
+    private void ProcessDecryption()
+    {
+        DecrypFiles();
+        DecrypFolders();
+    }
+
+    private void DecrypFolders()
+    {
+        lock (_lockEncryption)
+        {
+            var encrypFolderPath = GetEncrypFolderPath();
+            var encrypFileName = _encryptedFoldersFileName;
+            var encrypFilePath = Path.Combine(encrypFolderPath, encrypFileName);
+            if(!File.Exists(encrypFilePath))
+                return;
+            Zip.UnzipFile(encrypFilePath);
+            File.Delete(encrypFilePath);
+        }
+    }
+
+    private void DecrypFiles()
+    {
+        lock (_lockEncryption)
+        {
+            var encrypFolderPath = GetEncrypFolderPath();
+            var encrypFileName = _encryptedFilesFileName;
+            var encrypFilePath = Path.Combine(encrypFolderPath, encrypFileName);
+            if(!File.Exists(encrypFilePath))
+                return;
+            Zip.UnzipFile(encrypFilePath);
+            File.Delete(encrypFilePath);
+        }
+    }
+
+    private void ProcessEncryption()
+    {
+        EncrypFiles();
+        EncrypFolders();
+    }
+
+    private void EncrypFolders()
+    {
+        lock (_lockEncryption)
+        {
+            var foldersToEncryp = GetAppSetting().EncryptionTargets.Where(t => t.Category == EnumTargetCategory.Folder).Select(t => t.Path).ToList();
+            if(!foldersToEncryp.Any()) return;
+            var encrypFolderPath = GetEncrypFolderPath();
+            var encrypFileName = _encryptedFoldersFileName;
+            Zip.ZipFolders(foldersToEncryp, encrypFolderPath, encrypFileName);
+            foreach(var folderPath in foldersToEncryp)
+            {
+                Directory.Delete(folderPath, true);
+            }
+        }
+    }
+
+    private string GetEncrypFolderPath()
+    {
+        var settingPath = GetSettingPath();
+        var encrypFolderName = "Encryption";
+        var encrypFolderPath = Path.Combine(settingPath, encrypFolderName);
+        IfFolderNotExistCreateOne(encrypFolderPath);
+        return encrypFolderPath;
+    }
+
+    private void EncrypFiles()
+    {
+        lock (_lockEncryption)
+        {
+            var filesToEncryp = GetAppSetting().EncryptionTargets.Where(t => t.Category == EnumTargetCategory.File).Select(t => t.Path).ToList();
+            if(!filesToEncryp.Any()) return;
+            var encrypFolderPath = GetEncrypFolderPath();
+            var encrypFileName = _encryptedFilesFileName;
+            Zip.ZipFiles(filesToEncryp, encrypFolderPath, encrypFileName);
+            foreach(var filePath in filesToEncryp)
+            {
+                File.Delete(filePath);
+            }
+        }
     }
 }

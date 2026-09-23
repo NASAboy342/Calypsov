@@ -14,9 +14,9 @@ public interface IEncryptionSettingsService
 
     IReadOnlyList<EncryptionTarget> GetTargets();
 
-    /// <summary>Throws <see cref="ArgumentException"/> for an invalid category/path, or
+    /// <summary>Throws <see cref="ArgumentException"/> for an invalid path, or
     /// <see cref="InvalidOperationException"/> if the path is already configured.</summary>
-    EncryptionTarget AddTarget(string category, string path);
+    EncryptionTarget AddTarget(EnumTargetCategory category, string path);
 
     bool RemoveTarget(Guid id);
 }

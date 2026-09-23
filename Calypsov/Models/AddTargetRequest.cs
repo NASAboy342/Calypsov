@@ -1,3 +1,3 @@
 namespace Calypsov.Models;
 
-public sealed record AddTargetRequest(string Category, string Path);
+public sealed record AddTargetRequest(EnumTargetCategory Category, string Path);

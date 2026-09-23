@@ -1,6 +1,6 @@
 <script setup lang="ts">
 import { ref } from 'vue'
-import { useTargetsStore, type TargetCategory } from '@/stores/targets'
+import { useTargetsStore, EnumTargetCategory } from '@/stores/targets'
 import { pickFile, pickFolder } from '@/services/dialogApi'
 import IconFolder from '@/components/icons/IconFolder.vue'
 import IconFile from '@/components/icons/IconFile.vue'
@@ -10,7 +10,7 @@ import IconFolderOpen from '@/components/icons/IconFolderOpen.vue'
 
 const targets = useTargetsStore()
 
-const category = ref<TargetCategory>('folder')
+const category = ref<EnumTargetCategory>(EnumTargetCategory.Folder)
 const path = ref('')
 const error = ref('')
 const browsing = ref(false)
@@ -40,7 +40,7 @@ async function handlePaste() {
 async function handleBrowse() {
   browsing.value = true
   try {
-    const result = category.value === 'folder' ? await pickFolder() : await pickFile()
+    const result = category.value === EnumTargetCategory.Folder ? await pickFolder() : await pickFile()
     if (result.path) {
       path.value = result.path
       error.value = ''
@@ -72,14 +72,14 @@ async function handleBrowse() {
           v-model="category"
           class="h-10.5 rounded-lg border border-white/10 bg-neutral-950 px-3 text-sm text-neutral-100 focus:border-teal-400 focus:ring-2 focus:ring-teal-400/40 focus:outline-none"
         >
-          <option value="folder">Folder</option>
-          <option value="file">File</option>
+          <option :value="EnumTargetCategory.Folder">Folder</option>
+          <option :value="EnumTargetCategory.File">File</option>
         </select>
       </div>
 
       <div class="flex min-w-70 flex-1 flex-col gap-1.5">
         <label for="path" class="text-xs font-semibold text-neutral-400">
-          {{ category === 'folder' ? 'Folder path' : 'File path' }}
+          {{ category === EnumTargetCategory.Folder ? 'Folder path' : 'File path' }}
         </label>
         <div class="relative">
           <input
@@ -87,7 +87,7 @@ async function handleBrowse() {
             v-model="path"
             type="text"
             :placeholder="
-              category === 'folder'
+              category === EnumTargetCategory.Folder
                 ? '/Users/you/Documents/Projects'
                 : '/Users/you/Documents/report.pdf'
             "

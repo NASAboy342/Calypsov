@@ -9,8 +9,6 @@ public sealed class MemoryEncryptionSettingsService : IEncryptionSettingsService
     private const string EnabledCacheKey = "encryption:enabled";
     private const string TargetsCacheKey = "encryption:targets";
 
-    private static readonly string[] AllowedCategories = ["folder", "file"];
-
     private readonly IMemoryCache _cache;
     private readonly object _lock = new();
 
@@ -48,14 +46,8 @@ public sealed class MemoryEncryptionSettingsService : IEncryptionSettingsService
         }
     }
 
-    public EncryptionTarget AddTarget(string category, string path)
+    public EncryptionTarget AddTarget(EnumTargetCategory category, string path)
     {
-        var normalizedCategory = category.Trim().ToLowerInvariant();
-        if (!AllowedCategories.Contains(normalizedCategory))
-        {
-            throw new ArgumentException("Category must be \"folder\" or \"file\".", nameof(category));
-        }
-
         var trimmedPath = path.Trim();
         if (trimmedPath.Length == 0)
         {
@@ -66,13 +58,13 @@ public sealed class MemoryEncryptionSettingsService : IEncryptionSettingsService
         {
             var targets = GetTargetsUnsafe();
 
-            var isDuplicate = targets.Any(t => t.Category == normalizedCategory && t.Path == trimmedPath);
+            var isDuplicate = targets.Any(t => t.Category == category && t.Path == trimmedPath);
             if (isDuplicate)
             {
                 throw new InvalidOperationException("That path has already been added.");
             }
 
-            var target = new EncryptionTarget(Guid.NewGuid(), normalizedCategory, trimmedPath);
+            var target = new EncryptionTarget(Guid.NewGuid(), category, trimmedPath);
             targets.Add(target);
             _cache.Set(TargetsCacheKey, targets);
             return target;

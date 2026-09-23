@@ -1,10 +1,13 @@
 import { requestJson } from '@/services/httpClient'
 
-export type TargetCategory = 'folder' | 'file'
+export enum EnumTargetCategory {
+  Folder = 'folder',
+  File = 'file',
+}
 
 export interface EncryptionTarget {
   id: string
-  category: TargetCategory
+  category: EnumTargetCategory
   path: string
 }
 
@@ -26,7 +29,7 @@ export function getTargets() {
   return requestJson<EncryptionTarget[]>(`${BASE_URL}/targets`)
 }
 
-export function addTarget(category: TargetCategory, path: string) {
+export function addTarget(category: EnumTargetCategory, path: string) {
   return requestJson<EncryptionTarget>(`${BASE_URL}/targets`, {
     method: 'POST',
     body: JSON.stringify({ category, path }),
