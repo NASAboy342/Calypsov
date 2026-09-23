@@ -1,15 +1,15 @@
 import { requestJson } from '@/services/httpClient'
 
-interface PickPathResult {
-  path: string | null
+interface PickPathsResult {
+  paths: string[]
 }
 
 const BASE_URL = '/api/dialog'
 
-export function pickFolder() {
-  return requestJson<PickPathResult>(`${BASE_URL}/pick-folder`, { method: 'POST' })
+export function pickFolders() {
+  return requestJson<PickPathsResult>(`${BASE_URL}/pick-folder`, { method: 'POST' })
 }
 
-export function pickFile() {
-  return requestJson<PickPathResult>(`${BASE_URL}/pick-file`, { method: 'POST' })
+export function pickFiles() {
+  return requestJson<PickPathsResult>(`${BASE_URL}/pick-file`, { method: 'POST' })
 }

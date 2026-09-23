@@ -16,20 +16,20 @@ public static class DialogEndpoints
         group.MapPost("/pick-folder", async () =>
         {
             var paths = await window.ShowOpenFolderAsync(
-                title: "Choose a folder",
+                title: "Choose folders",
                 defaultPath: string.Empty,
-                multiSelect: false);
-            return Results.Ok(new PickPathResponse(paths.Length > 0 ? paths[0] : null));
+                multiSelect: true);
+            return Results.Ok(new PickPathsResponse(paths));
         });
 
         group.MapPost("/pick-file", async () =>
         {
             var paths = await window.ShowOpenFileAsync(
-                title: "Choose a file",
+                title: "Choose files",
                 defaultPath: string.Empty,
-                multiSelect: false,
+                multiSelect: true,
                 filters: Array.Empty<(string Name, string[] Extensions)>());
-            return Results.Ok(new PickPathResponse(paths.Length > 0 ? paths[0] : null));
+            return Results.Ok(new PickPathsResponse(paths));
         });
     }
 }

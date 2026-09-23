@@ -28,7 +28,14 @@ class Program
 
         // The appUrl is set to the local development server when in debug mode.
         // This helps with hot reloading and debugging.
-        string appUrl = IsDebugMode ? "http://localhost:5173" : $"{baseUrl}/index.html";
+        // The cache-busting query string on the production URL forces the WebView to fetch a
+        // fresh index.html on every launch. Without it, the WebView's HTTP cache persists across
+        // app restarts (it's tied to the app's data store, not the process), so after a rebuild it
+        // can keep serving an old cached index.html that references now-deleted, old-hashed asset
+        // chunks (e.g. old-SettingsView-<hash>.js), causing confusing 404s and stale behavior.
+        string appUrl = IsDebugMode
+            ? "http://localhost:5173"
+            : $"{baseUrl}/index.html?v={DateTimeOffset.UtcNow.ToUnixTimeSeconds()}";
         Console.WriteLine($"Serving Vue app at {appUrl}");
 
         // Window title declared here for visibility

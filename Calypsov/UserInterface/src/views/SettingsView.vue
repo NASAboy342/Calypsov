@@ -1,7 +1,7 @@
 <script setup lang="ts">
 import { ref } from 'vue'
 import { useTargetsStore, EnumTargetCategory } from '@/stores/targets'
-import { pickFile, pickFolder } from '@/services/dialogApi'
+import { pickFiles, pickFolders } from '@/services/dialogApi'
 import IconFolder from '@/components/icons/IconFolder.vue'
 import IconFile from '@/components/icons/IconFile.vue'
 import IconTrash from '@/components/icons/IconTrash.vue'
@@ -37,16 +37,26 @@ async function handlePaste() {
   }
 }
 
+/**
+ * Browsing lets the user multi-select folders/files in one go, so each picked path is
+ * added directly (like the manual Add button, just run once per path) rather than
+ * being funneled through the single-path text input.
+ */
 async function handleBrowse() {
   browsing.value = true
   try {
-    const result = category.value === EnumTargetCategory.Folder ? await pickFolder() : await pickFile()
-    if (result.path) {
-      path.value = result.path
-      error.value = ''
+    const result =
+      category.value === EnumTargetCategory.Folder ? await pickFolders() : await pickFiles()
+    if (result.paths.length === 0) return
+
+    const failures: string[] = []
+    for (const picked of result.paths) {
+      const addError = await targets.add(category.value, picked)
+      if (addError) failures.push(`${picked} — ${addError}`)
     }
-  } catch {
-    error.value = 'Could not open the picker.'
+    error.value = failures.join(' ')
+  } catch (err) {
+    error.value = err instanceof Error ? err.message : 'Could not open the picker.'
   } finally {
     browsing.value = false
   }
@@ -105,8 +115,8 @@ async function handleBrowse() {
             </button>
             <button
               type="button"
-              title="Browse…"
-              aria-label="Browse for a path"
+              title="Browse… (pick multiple, added instantly)"
+              aria-label="Browse for one or more paths"
               :disabled="browsing"
               class="flex h-7 w-7 items-center justify-center rounded-md text-neutral-500 transition-colors hover:bg-white/10 hover:text-teal-300 disabled:opacity-50"
               @click="handleBrowse"
