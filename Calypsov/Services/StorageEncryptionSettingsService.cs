@@ -22,18 +22,52 @@ public class StorageEncryptionSettingsService : IEncryptionSettingsService
         {
             var appSetting = GetAppSetting();
             CheckIfTargetAlreadyAddBefore(category, path, appSetting);
+            CheckIfTargetIsASubTargetFromExistingTarget(category, path, appSetting);
             appSetting.EncryptionTargets.Add(newTargetToAdd);
             SaveAppSetting();
         }
         return newTargetToAdd;
     }
 
-    private static void CheckIfTargetAlreadyAddBefore(EnumTargetCategory category, string path, AppSetting appSetting)
+    private void CheckIfTargetIsASubTargetFromExistingTarget(EnumTargetCategory category, string path, AppSetting appSetting)
+    {
+        if(category != EnumTargetCategory.Folder)
+            return;
+        var existingTargetFolders = appSetting.EncryptionTargets.Where(t => t.Category == EnumTargetCategory.Folder).Select(t => t.Path).ToList();
+        foreach (var folder in existingTargetFolders)
+        {
+            if (IsSubFolder(folder, path))
+                throw new Exception($"This folder under an existing configed folder: {folder}. So no need to add it.");
+        }
+    }
+
+    private void CheckIfTargetAlreadyAddBefore(EnumTargetCategory category, string path, AppSetting appSetting)
     {
         if (appSetting.EncryptionTargets.Any(t => t.Category == category && t.Path.Equals(path)))
         {
             throw new Exception("EncryptionTarget already set. Will not add duplicated one");
         }
+    }
+
+    private bool IsSubFolder(string parentFolder,string childFolder)
+    {
+        var fullParentPath = Path.GetFullPath(parentFolder)
+            .TrimEnd(Path.DirectorySeparatorChar);
+
+        var fullChildPath = Path.GetFullPath(childFolder)
+            .TrimEnd(Path.DirectorySeparatorChar);
+
+        var relativePath = Path.GetRelativePath(
+            fullParentPath,
+            fullChildPath);
+
+        // "." means they are the same folder
+        // ".." means the child is outside the parent
+        // "../..." also means outside the parent
+        return relativePath != "."
+            && !relativePath.Equals("..")
+            && !relativePath.StartsWith(
+                ".." + Path.DirectorySeparatorChar);
     }
 
     public IReadOnlyList<EncryptionTarget> GetTargets()
@@ -185,7 +219,7 @@ public class StorageEncryptionSettingsService : IEncryptionSettingsService
             if(!File.Exists(encrypFilePath))
                 return;
             Zip.UnzipFile(encrypFilePath);
-            File.Delete(encrypFilePath);
+            CleanupEncryptedFolderFile();
         }
     }
 
@@ -199,7 +233,7 @@ public class StorageEncryptionSettingsService : IEncryptionSettingsService
             if(!File.Exists(encrypFilePath))
                 return;
             Zip.UnzipFile(encrypFilePath);
-            File.Delete(encrypFilePath);
+            CleanupEncryptedFilesFile();
         }
     }
 
@@ -214,14 +248,104 @@ public class StorageEncryptionSettingsService : IEncryptionSettingsService
         lock (_lockEncryption)
         {
             var foldersToEncryp = GetAppSetting().EncryptionTargets.Where(t => t.Category == EnumTargetCategory.Folder).Select(t => t.Path).ToList();
-            if(!foldersToEncryp.Any()) return;
-            var encrypFolderPath = GetEncrypFolderPath();
-            var encrypFileName = _encryptedFoldersFileName;
-            Zip.ZipFolders(foldersToEncryp, encrypFolderPath, encrypFileName);
-            foreach(var folderPath in foldersToEncryp)
+            if (!foldersToEncryp.Any()) return;
+            CheckIfCanAccessPaths(foldersToEncryp);
+            try
+            {
+                var encrypFolderPath = GetEncrypFolderPath();
+                var encrypFileName = _encryptedFoldersFileName;
+                Zip.ZipFolders(foldersToEncryp, encrypFolderPath, encrypFileName);
+            }
+            catch (UnauthorizedAccessException e)
+            {
+                CleanupEncryptedFolderFile();
+                throw new Exception($"{e.Message} Please go to System Settings → Privacy & Security → Full Disk Access and allow for Calypsov");
+            }
+            catch (Exception e)
+            {
+                CleanupEncryptedFolderFile();
+                throw;
+            }
+            DelectAllTargetFolderFromOriginalLocations(foldersToEncryp);
+        }
+    }
+    public bool CheckIfCanReadFiles(List<string> filePaths)
+    {
+        try
+        {
+            foreach(var filePath in filePaths)
+            {
+                using var stream = File.Open(
+                    filePath,
+                    FileMode.Open,
+                    FileAccess.Read,
+                    FileShare.ReadWrite);
+            }
+            return true;
+        }
+        catch (UnauthorizedAccessException e)
+        {
+            CleanupEncryptedFilesFile();
+            throw new Exception($"{e.Message} Please go to System Settings → Privacy & Security → Full Disk Access and allow for Calypsov");
+        }
+        catch (Exception e)
+        {
+            CleanupEncryptedFilesFile();
+            throw;
+        }
+    }
+    public bool CheckIfCanAccessPaths(List<string> paths)
+    {
+        try
+        {
+            foreach(var path in paths)
+            {
+                // Actually try to enumerate the directory
+                using var enumerator = Directory.EnumerateFileSystemEntries(path).GetEnumerator();
+
+                // Move once to force the OS to check access
+                _ = enumerator.MoveNext();
+            }
+
+            return true;
+        }
+        catch (UnauthorizedAccessException e)
+        {
+            CleanupEncryptedFolderFile();
+            throw new Exception($"{e.Message} Please go to System Settings → Privacy & Security → Full Disk Access and allow for Calypsov");
+        }
+        catch (Exception e)
+        {
+            CleanupEncryptedFolderFile();
+            throw;
+        }
+    }
+
+    private void DelectAllTargetFolderFromOriginalLocations(List<string> foldersToEncryp)
+    {
+        try
+        {
+            foreach (var folderPath in foldersToEncryp)
             {
                 Directory.Delete(folderPath, true);
             }
+        }
+        catch (Exception e)
+        {
+            CleanupEncryptedFolderFile();
+            throw;
+        }
+
+    }
+
+    private void CleanupEncryptedFolderFile()
+    {
+        var encrypFolderPath = GetEncrypFolderPath();
+        var encrypFileName = _encryptedFoldersFileName;
+        var encrypFolderFilePath = Path.Combine(encrypFolderPath,encrypFileName);
+        if (File.Exists(encrypFolderFilePath))
+        {
+            File.Delete(encrypFolderFilePath);
         }
     }
 
@@ -239,14 +363,39 @@ public class StorageEncryptionSettingsService : IEncryptionSettingsService
         lock (_lockEncryption)
         {
             var filesToEncryp = GetAppSetting().EncryptionTargets.Where(t => t.Category == EnumTargetCategory.File).Select(t => t.Path).ToList();
-            if(!filesToEncryp.Any()) return;
-            var encrypFolderPath = GetEncrypFolderPath();
-            var encrypFileName = _encryptedFilesFileName;
-            Zip.ZipFiles(filesToEncryp, encrypFolderPath, encrypFileName);
-            foreach(var filePath in filesToEncryp)
+            if (!filesToEncryp.Any()) return;
+            CheckIfCanReadFiles(filesToEncryp);
+            try
+            {
+                var encrypFolderPath = GetEncrypFolderPath();
+                var encrypFileName = _encryptedFilesFileName;
+                Zip.ZipFiles(filesToEncryp, encrypFolderPath, encrypFileName);
+            }
+            catch (UnauthorizedAccessException e)
+            {
+                CleanupEncryptedFilesFile();
+                throw new Exception($"{e.Message} Please go to System Settings → Privacy & Security → Full Disk Access and allow for Calypsov");
+            }
+            catch (Exception e)
+            {
+                CleanupEncryptedFilesFile();
+                throw;
+            }
+            foreach (var filePath in filesToEncryp)
             {
                 File.Delete(filePath);
             }
+        }
+    }
+
+    private void CleanupEncryptedFilesFile()
+    {
+        var encrypFolderPath = GetEncrypFolderPath();
+        var encrypFileName = _encryptedFilesFileName;
+        var encrypFilePath = Path.Combine(encrypFolderPath, encrypFileName);
+        if (File.Exists(encrypFilePath))
+        {
+            File.Delete(encrypFilePath);
         }
     }
 }
