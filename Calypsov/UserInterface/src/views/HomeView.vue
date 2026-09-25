@@ -33,7 +33,7 @@ const dotClass = computed(() => {
 
 <template>
   <div class="mx-auto max-w-5xl">
-    <div class="flex flex-col gap-12 lg:flex-row lg:items-center lg:justify-between">
+    <div class="flex flex-col gap-12 md:flex-row md:items-center md:justify-between">
       <div class="max-w-xl">
         <p class="mb-4 text-xs font-semibold tracking-[0.2em] text-teal-400 uppercase">
           Protection status
