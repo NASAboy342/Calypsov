@@ -11,11 +11,22 @@ namespace Calypsov;
 // Or edit the .csproj file and change the <OutputType> tag from "WinExe" to "Exe".
 class Program
 {
+#if DEBUG
+    public static bool IsDebugMode = true;
+#else
     public static bool IsDebugMode = false;
+#endif
 
     [STAThread]
     static void Main(string[] args)
     {
+        // A packaged app isn't launched with its own folder as the working directory
+        // (e.g. a macOS .app launched from Finder), but PhotinoServer's static file host
+        // resolves "wwwroot" relative to the working directory. Pin it to the executable's
+        // own directory so wwwroot (and any other relative lookup) resolves correctly
+        // regardless of how the app was launched.
+        Directory.SetCurrentDirectory(AppContext.BaseDirectory);
+
         var app = PhotinoServer.CreateStaticFileServer(args, out string baseUrl);
 
         // In-memory-backed for now; swap the storage or add real encrypt/decrypt
@@ -48,7 +59,9 @@ class Program
             .SetTitle(windowTitle)
             // Window/taskbar icon (Windows + Linux; no-op on macOS, which instead
             // gets its Dock icon from AppIcon/app.icns once the app is bundled as a .app).
-            .SetIconFile("AppIcon/app.ico")
+            // Resolved against the executable's own directory rather than the process's
+            // working directory, since a packaged .app is not launched from its own folder.
+            .SetIconFile(Path.Combine(AppContext.BaseDirectory, "AppIcon", "app.ico"))
             // Resize to a percentage of the main monitor work area
             //.Resize(50, 50, "%")
             .SetUseOsDefaultSize(false)
