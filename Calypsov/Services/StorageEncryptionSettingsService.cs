@@ -245,9 +245,9 @@ public class StorageEncryptionSettingsService : IEncryptionSettingsService
 
     private void EncrypFolders()
     {
+        var foldersToEncryp = GetAppSetting().EncryptionTargets.Where(t => t.Category == EnumTargetCategory.Folder).Select(t => t.Path).ToList();
         lock (_lockEncryption)
         {
-            var foldersToEncryp = GetAppSetting().EncryptionTargets.Where(t => t.Category == EnumTargetCategory.Folder).Select(t => t.Path).ToList();
             if (!foldersToEncryp.Any()) return;
             CheckIfCanAccessPaths(foldersToEncryp);
             try
@@ -266,8 +266,8 @@ public class StorageEncryptionSettingsService : IEncryptionSettingsService
                 CleanupEncryptedFolderFile();
                 throw;
             }
-            DelectAllTargetFolderFromOriginalLocations(foldersToEncryp);
         }
+        DelectAllTargetFolderFromOriginalLocations(foldersToEncryp);
     }
     public bool CheckIfCanReadFiles(List<string> filePaths)
     {
@@ -323,17 +323,19 @@ public class StorageEncryptionSettingsService : IEncryptionSettingsService
 
     private void DelectAllTargetFolderFromOriginalLocations(List<string> foldersToEncryp)
     {
+        var folderPathBeingDeleted = "";
         try
         {
             foreach (var folderPath in foldersToEncryp)
             {
+                folderPathBeingDeleted = folderPath;
                 Directory.Delete(folderPath, true);
             }
         }
         catch (Exception e)
         {
-            CleanupEncryptedFolderFile();
-            throw;
+            DecrypFolders();
+            throw new Exception($"{e.Message} : Fail to delete folder \"{folderPathBeingDeleted}\". Encryption has been canceled. No thing is encrypted.");
         }
 
     }
@@ -360,9 +362,9 @@ public class StorageEncryptionSettingsService : IEncryptionSettingsService
 
     private void EncrypFiles()
     {
+        var filesToEncryp = GetAppSetting().EncryptionTargets.Where(t => t.Category == EnumTargetCategory.File).Select(t => t.Path).ToList();
         lock (_lockEncryption)
         {
-            var filesToEncryp = GetAppSetting().EncryptionTargets.Where(t => t.Category == EnumTargetCategory.File).Select(t => t.Path).ToList();
             if (!filesToEncryp.Any()) return;
             CheckIfCanReadFiles(filesToEncryp);
             try
@@ -381,10 +383,25 @@ public class StorageEncryptionSettingsService : IEncryptionSettingsService
                 CleanupEncryptedFilesFile();
                 throw;
             }
+        }
+        DelectAllTargetFileFromOriginalLocations(filesToEncryp);
+    }
+
+    private void DelectAllTargetFileFromOriginalLocations(List<string> filesToEncryp)
+    {
+        var filePathBeingDeleted = "";
+        try
+        {
             foreach (var filePath in filesToEncryp)
             {
+                filePathBeingDeleted = filePath;
                 File.Delete(filePath);
             }
+        }
+        catch (Exception e)
+        {
+            DecrypFiles();
+            throw new Exception($"{e.Message} : Fail to delete file \"{filePathBeingDeleted}\". Encryption has been canceled. No thing is encrypted.");
         }
     }
 
