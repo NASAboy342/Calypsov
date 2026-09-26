@@ -6,6 +6,7 @@ using Calypsov.Api;
 using Calypsov.Repositories;
 using Calypsov.Services;
 using Microsoft.Extensions.Caching.Memory;
+using Microsoft.Extensions.DependencyInjection;
 
 namespace Calypsov;
 //NOTE: To hide the console window, go to the project properties and change the Output Type to Windows Application.
@@ -30,21 +31,28 @@ class Program
 
         var app = PhotinoServer.CreateStaticFileServer(args, out string baseUrl);
 
-        // Shared by every storage-backed service below — resolves the app-data folder once and
-        // reads/writes each service's own settings file within it.
-        ISettingRepository settingRepository = new SettingRepository();
+        // CreateStaticFileServer already calls WebApplicationBuilder.Build() before returning
+        // "app", so its DI container (app.Services) is sealed by the time we get it — there's no
+        // hook to add our own registrations to it. This is a separate container, built the same
+        // way ASP.NET Core builds its own (Microsoft.Extensions.DependencyInjection), just for our
+        // services: register interface → implementation once here, and the container resolves
+        // each constructor's dependencies automatically instead of us `new`-ing things up by hand.
+        var services = new ServiceCollection();
 
-        // In-memory-backed for now; swap the storage or add real encrypt/decrypt
-        // logic behind this interface later without touching the API surface below.
-        IEncryptionSettingsService encryptionSettings =
-            // new MemoryEncryptionSettingsService(new MemoryCache(new MemoryCacheOptions()));
-            new StorageEncryptionSettingsService(settingRepository);
+        services.AddSingleton<ISettingRepository, SettingRepository>();
 
-        app.MapEncryptionEndpoints(encryptionSettings);
+        // In-memory-backed for now; swap the storage or add real encrypt/decrypt logic behind
+        // this interface later without touching the API surface below.
+        services.AddSingleton<IEncryptionSettingsService, StorageEncryptionSettingsService>();
+        // services.AddSingleton<IMemoryCache, MemoryCache>();
+        // services.AddSingleton<IEncryptionSettingsService, MemoryEncryptionSettingsService>();
 
-        IBrowserProfileService browserProfiles = new StorageBrowserProfileService(settingRepository);
+        services.AddSingleton<IBrowserProfileService, StorageBrowserProfileService>();
 
-        app.MapBrowserEndpoints(browserProfiles);
+        using var serviceProvider = services.BuildServiceProvider();
+
+        app.MapEncryptionEndpoints(serviceProvider.GetRequiredService<IEncryptionSettingsService>());
+        app.MapBrowserEndpoints(serviceProvider.GetRequiredService<IBrowserProfileService>());
 
         // The appUrl is set to the local development server when in debug mode.
         // This helps with hot reloading and debugging.
