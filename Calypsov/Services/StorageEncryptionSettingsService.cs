@@ -2,18 +2,25 @@ using System;
 using System.Diagnostics;
 using Calypsov.Helpers;
 using Calypsov.Models;
-using Newtonsoft.Json;
+using Calypsov.Repositories;
 
 namespace Calypsov.Services;
 
 public class StorageEncryptionSettingsService : IEncryptionSettingsService
 {
+    private const string SettingsFileName = "settings.json";
+
+    private readonly ISettingRepository _settingRepository;
     private AppSetting? _appSetting;
     private readonly object _lock = new();
-    private readonly object _lockFile = new();
     private readonly object _lockEncryption = new();
     private readonly string _encryptedFoldersFileName = "CalypsovFolders.zip";
     private readonly string _encryptedFilesFileName = "CalypsovFiles.zip";
+
+    public StorageEncryptionSettingsService(ISettingRepository settingRepository)
+    {
+        _settingRepository = settingRepository;
+    }
 
     public EncryptionTarget AddTarget(EnumTargetCategory category, string path)
     {
@@ -87,61 +94,7 @@ public class StorageEncryptionSettingsService : IEncryptionSettingsService
 
     private void LoadAppSetting()
     {
-        lock (_lockFile)
-        {
-            try
-            {
-                var settingPath = GetSettingFilePath();
-                var json = File.ReadAllText(settingPath);
-
-                if (string.IsNullOrWhiteSpace(json))
-                {
-                    _appSetting = new AppSetting();
-                    return;
-                }
-
-                _appSetting = JsonConvert.DeserializeObject<AppSetting>(json);
-            }
-            catch
-            {
-                _appSetting = new AppSetting();
-            }
-            
-        }
-    }
-
-    private string GetSettingFilePath()
-    {
-        var appSettingFileName = "settings.json";
-        var appDirectory = GetSettingPath();
-        var settingsPath = Path.Combine(appDirectory, appSettingFileName);
-        IfFileNotExistCreateOne(settingsPath);
-        return settingsPath;
-    }
-
-    private void IfFileNotExistCreateOne(string filePath)
-    {
-        if (!File.Exists(filePath))
-        {
-            using var stream = File.Create(filePath);
-        }
-    }
-
-    private string GetSettingPath()
-    {
-        var appFolderName = "Calypsov";
-        var appData = Environment.GetFolderPath(Environment.SpecialFolder.LocalApplicationData);
-        var appDirectory = Path.Combine(appData, appFolderName);
-        IfFolderNotExistCreateOne(appDirectory);
-        return appDirectory;
-    }
-
-    private void IfFolderNotExistCreateOne(string directory)
-    {
-        if (!string.IsNullOrEmpty(directory)) 
-        { 
-            Directory.CreateDirectory(directory); 
-        }
+        _appSetting = _settingRepository.Load<AppSetting>(SettingsFileName) ?? new AppSetting();
     }
 
     public bool IsEncryptionEnabled()
@@ -166,11 +119,7 @@ public class StorageEncryptionSettingsService : IEncryptionSettingsService
 
     private void SaveAppSetting()
     {
-        lock (_lockFile)
-        {
-            var appSettingFilePath = GetSettingFilePath();
-            File.WriteAllText(appSettingFilePath, JsonConvert.SerializeObject(_appSetting));
-        }
+        _settingRepository.Save(SettingsFileName, _appSetting!);
     }
 
     public bool SetEncryptionEnabled(bool enabled)
@@ -353,10 +302,10 @@ public class StorageEncryptionSettingsService : IEncryptionSettingsService
 
     private string GetEncrypFolderPath()
     {
-        var settingPath = GetSettingPath();
+        var settingPath = _settingRepository.GetAppDataFolder();
         var encrypFolderName = "Encryption";
         var encrypFolderPath = Path.Combine(settingPath, encrypFolderName);
-        IfFolderNotExistCreateOne(encrypFolderPath);
+        Directory.CreateDirectory(encrypFolderPath);
         return encrypFolderPath;
     }
 

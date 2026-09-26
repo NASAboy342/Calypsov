@@ -1,5 +1,6 @@
 using System.Runtime.InteropServices;
 using Calypsov.Models;
+using Calypsov.Repositories;
 using Newtonsoft.Json;
 using Newtonsoft.Json.Linq;
 
@@ -7,10 +8,16 @@ namespace Calypsov.Services;
 
 public class StorageBrowserProfileService : IBrowserProfileService
 {
+    private const string SettingsFileName = "browserProfiles.json";
+
+    private readonly ISettingRepository _settingRepository;
     private Dictionary<BrowserType, string?>? _selections;
     private readonly object _lock = new();
-    private readonly object _lockFile = new();
-    private const string SettingsFileName = "browserProfiles.json";
+
+    public StorageBrowserProfileService(ISettingRepository settingRepository)
+    {
+        _settingRepository = settingRepository;
+    }
 
     public IReadOnlyList<BrowserProfile> GetProfiles(BrowserType browser)
     {
@@ -200,55 +207,12 @@ public class StorageBrowserProfileService : IBrowserProfileService
 
     private void LoadSelections()
     {
-        lock (_lockFile)
-        {
-            try
-            {
-                var settingsPath = GetSettingsFilePath();
-                var json = File.ReadAllText(settingsPath);
-
-                if (string.IsNullOrWhiteSpace(json))
-                {
-                    _selections = new Dictionary<BrowserType, string?>();
-                    return;
-                }
-
-                _selections = JsonConvert.DeserializeObject<Dictionary<BrowserType, string?>>(json)
-                    ?? new Dictionary<BrowserType, string?>();
-            }
-            catch
-            {
-                _selections = new Dictionary<BrowserType, string?>();
-            }
-        }
+        _selections = _settingRepository.Load<Dictionary<BrowserType, string?>>(SettingsFileName)
+            ?? new Dictionary<BrowserType, string?>();
     }
 
     private void SaveSelections()
     {
-        lock (_lockFile)
-        {
-            var settingsPath = GetSettingsFilePath();
-            File.WriteAllText(settingsPath, JsonConvert.SerializeObject(_selections));
-        }
-    }
-
-    private string GetSettingsFilePath()
-    {
-        var appDirectory = GetSettingPath();
-        var settingsPath = Path.Combine(appDirectory, SettingsFileName);
-        if (!File.Exists(settingsPath))
-        {
-            using var stream = File.Create(settingsPath);
-        }
-        return settingsPath;
-    }
-
-    private string GetSettingPath()
-    {
-        var appFolderName = "Calypsov";
-        var appData = Environment.GetFolderPath(Environment.SpecialFolder.LocalApplicationData);
-        var appDirectory = Path.Combine(appData, appFolderName);
-        Directory.CreateDirectory(appDirectory);
-        return appDirectory;
+        _settingRepository.Save(SettingsFileName, _selections!);
     }
 }

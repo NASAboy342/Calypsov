@@ -3,6 +3,7 @@ using Photino.NET.Server;
 using System.Drawing;
 using System.Text;
 using Calypsov.Api;
+using Calypsov.Repositories;
 using Calypsov.Services;
 using Microsoft.Extensions.Caching.Memory;
 
@@ -29,15 +30,19 @@ class Program
 
         var app = PhotinoServer.CreateStaticFileServer(args, out string baseUrl);
 
+        // Shared by every storage-backed service below — resolves the app-data folder once and
+        // reads/writes each service's own settings file within it.
+        ISettingRepository settingRepository = new SettingRepository();
+
         // In-memory-backed for now; swap the storage or add real encrypt/decrypt
         // logic behind this interface later without touching the API surface below.
         IEncryptionSettingsService encryptionSettings =
             // new MemoryEncryptionSettingsService(new MemoryCache(new MemoryCacheOptions()));
-            new StorageEncryptionSettingsService();
+            new StorageEncryptionSettingsService(settingRepository);
 
         app.MapEncryptionEndpoints(encryptionSettings);
 
-        IBrowserProfileService browserProfiles = new StorageBrowserProfileService();
+        IBrowserProfileService browserProfiles = new StorageBrowserProfileService(settingRepository);
 
         app.MapBrowserEndpoints(browserProfiles);
 
