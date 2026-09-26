@@ -25,20 +25,22 @@ public class StorageBrowserProfileService : IBrowserProfileService
         }
     }
 
-    private List<BrowserProfile> GetChromeBrowserProfiles()
-    {
-       return [];
-    }
+    private List<BrowserProfile> GetChromeBrowserProfiles() =>
+        GetChromiumBrowserProfiles(GetChromeUserDataDirectory());
+
+    private List<BrowserProfile> GetMsEdgeBrowserProfiles() =>
+        GetChromiumBrowserProfiles(GetEdgeUserDataDirectory());
 
     /// <summary>
-    /// Reads Edge's "Local State" file for the profile list (name + folder per profile), then
-    /// looks in each profile's own folder for a cached account picture to use as the avatar.
-    /// Returns an empty list (rather than throwing) if Edge isn't installed or the file is
-    /// missing/malformed — that's a normal "no profiles to show" case, not an error.
+    /// Shared by Edge and Chrome — both are Chromium-based and lay out profiles the same way
+    /// (a "Local State" file listing profile folders, one subfolder per profile). Reads the
+    /// profile list (name + folder), then looks in each profile's own folder for a cached
+    /// account picture to use as the avatar. Returns an empty list (rather than throwing) if the
+    /// browser isn't installed or the file is missing/malformed — that's a normal "no profiles to
+    /// show" case, not an error.
     /// </summary>
-    private List<BrowserProfile> GetMsEdgeBrowserProfiles()
+    private List<BrowserProfile> GetChromiumBrowserProfiles(string userDataDirectory)
     {
-        var userDataDirectory = GetEdgeUserDataDirectory();
         var localStatePath = Path.Combine(userDataDirectory, "Local State");
         if (!File.Exists(localStatePath))
             return [];
@@ -108,6 +110,25 @@ public class StorageBrowserProfileService : IBrowserProfileService
         // Linux
         var homeDirectory = Environment.GetFolderPath(Environment.SpecialFolder.UserProfile);
         return Path.Combine(homeDirectory, ".config", "microsoft-edge");
+    }
+
+    private string GetChromeUserDataDirectory()
+    {
+        if (RuntimeInformation.IsOSPlatform(OSPlatform.Windows))
+        {
+            var localAppData = Environment.GetFolderPath(Environment.SpecialFolder.LocalApplicationData);
+            return Path.Combine(localAppData, "Google", "Chrome", "User Data");
+        }
+
+        if (RuntimeInformation.IsOSPlatform(OSPlatform.OSX))
+        {
+            var home = Environment.GetFolderPath(Environment.SpecialFolder.UserProfile);
+            return Path.Combine(home, "Library", "Application Support", "Google", "Chrome");
+        }
+
+        // Linux
+        var homeDirectory = Environment.GetFolderPath(Environment.SpecialFolder.UserProfile);
+        return Path.Combine(homeDirectory, ".config", "google-chrome");
     }
 
     /// <summary>
