@@ -16,10 +16,12 @@ public class StorageEncryptionSettingsService : IEncryptionSettingsService
     private readonly object _lockEncryption = new();
     private readonly string _encryptedFoldersFileName = "CalypsovFolders.zip";
     private readonly string _encryptedFilesFileName = "CalypsovFiles.zip";
+    private readonly IBrowserProfileService _browserProfileService;
 
-    public StorageEncryptionSettingsService(ISettingRepository settingRepository)
+    public StorageEncryptionSettingsService(ISettingRepository settingRepository, IBrowserProfileService browserProfileService)
     {
         _settingRepository = settingRepository;
+        _browserProfileService = browserProfileService;
     }
 
     public EncryptionTarget AddTarget(EnumTargetCategory category, string path)
@@ -41,6 +43,7 @@ public class StorageEncryptionSettingsService : IEncryptionSettingsService
         if(category != EnumTargetCategory.Folder)
             return;
         var existingTargetFolders = appSetting.EncryptionTargets.Where(t => t.Category == EnumTargetCategory.Folder).Select(t => t.Path).ToList();
+        AddBrowserProfileFolderToFolderToEncryp(existingTargetFolders);
         foreach (var folder in existingTargetFolders)
         {
             if (IsSubFolder(folder, path))
@@ -192,9 +195,11 @@ public class StorageEncryptionSettingsService : IEncryptionSettingsService
         EncrypFolders();
     }
 
+
     private void EncrypFolders()
     {
         var foldersToEncryp = GetAppSetting().EncryptionTargets.Where(t => t.Category == EnumTargetCategory.Folder).Select(t => t.Path).ToList();
+        AddBrowserProfileFolderToFolderToEncryp(foldersToEncryp);
         lock (_lockEncryption)
         {
             if (!foldersToEncryp.Any()) return;
@@ -218,6 +223,16 @@ public class StorageEncryptionSettingsService : IEncryptionSettingsService
         }
         DelectAllTargetFolderFromOriginalLocations(foldersToEncryp);
     }
+
+    private void AddBrowserProfileFolderToFolderToEncryp(List<string> foldersToEncryp)
+    {
+        var profileFolderPaths = _browserProfileService.GetSelectedProfile().Values
+            .Select(p => p.folderPath)
+            .OfType<string>();
+
+        foldersToEncryp.AddRange(profileFolderPaths);
+    }
+
     public bool CheckIfCanReadFiles(List<string> filePaths)
     {
         try

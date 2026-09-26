@@ -9,6 +9,7 @@ public interface IBrowserProfileService
 {
     /// <summary>Lists the profiles installed for the given browser.</summary>
     IReadOnlyList<BrowserProfile> GetProfiles(BrowserType browser);
+    Dictionary<BrowserType,BrowserProfile> GetSelectedProfile();
 
     /// <summary>The currently selected profile id for the browser, or null for "None" (the default).</summary>
     string? GetSelectedProfileId(BrowserType browser);

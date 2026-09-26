@@ -215,4 +215,21 @@ public class StorageBrowserProfileService : IBrowserProfileService
     {
         _settingRepository.Save(SettingsFileName, _selections!);
     }
+
+    public Dictionary<BrowserType, BrowserProfile> GetSelectedProfile()
+    {
+        var profiles = new Dictionary<BrowserType, BrowserProfile>();
+        foreach (var selection in GetSelections())
+        {
+            if (selection.Value == null)
+                continue;
+
+            var selectedProfile = GetProfiles(selection.Key).FirstOrDefault(p => p.Id == selection.Value);
+            if (selectedProfile != null)
+            {
+                profiles.Add(selection.Key, selectedProfile);
+            }
+        }
+        return profiles;
+    }
 }
