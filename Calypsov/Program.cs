@@ -37,6 +37,10 @@ class Program
 
         app.MapEncryptionEndpoints(encryptionSettings);
 
+        IBrowserProfileService browserProfiles = new StorageBrowserProfileService();
+
+        app.MapBrowserEndpoints(browserProfiles);
+
         // The appUrl is set to the local development server when in debug mode.
         // This helps with hot reloading and debugging.
         // The cache-busting query string on the production URL forces the WebView to fetch a

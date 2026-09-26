@@ -2,11 +2,13 @@
 import { ref } from 'vue'
 import { useTargetsStore, EnumTargetCategory } from '@/stores/targets'
 import { pickFiles, pickFolders } from '@/services/dialogApi'
+import { BrowserType } from '@/services/browsersApi'
 import IconFolder from '@/components/icons/IconFolder.vue'
 import IconFile from '@/components/icons/IconFile.vue'
 import IconTrash from '@/components/icons/IconTrash.vue'
 import IconClipboard from '@/components/icons/IconClipboard.vue'
 import IconFolderOpen from '@/components/icons/IconFolderOpen.vue'
+import BrowserProfileCard from '@/components/BrowserProfileCard.vue'
 
 const targets = useTargetsStore()
 
@@ -193,6 +195,11 @@ async function handleBrowse() {
         </ul>
         <p v-else class="text-sm text-neutral-500">No files added yet.</p>
       </section>
+    </div>
+
+    <div class="mt-5 grid gap-5 sm:grid-cols-2">
+      <BrowserProfileCard :browser="BrowserType.Edge" />
+      <BrowserProfileCard :browser="BrowserType.Chrome" />
     </div>
   </div>
 </template>

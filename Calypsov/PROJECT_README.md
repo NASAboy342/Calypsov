@@ -25,3 +25,4 @@ Maintained by the `back-end-enhance` skill. Read this before planning any backen
 
 ## Feature log
 - *(baseline)* Encryption on/off + target folder/file management (`EncryptionEndpoints`, `IEncryptionSettingsService`, `StorageEncryptionSettingsService`), backed by zipping targets and deleting originals (reversed on toggle-off). Native file/folder picker dialogs (`DialogEndpoints`).
+- Browser profile selection for Edge/Chrome (`BrowserEndpoints`, `IBrowserProfileService`, `StorageBrowserProfileService`): `GET/POST /api/browsers/{browser}/selection` persist which profile id is picked per browser (`browserProfiles.json`, default `null` = "None") — fully implemented. `GET /api/browsers/{browser}/profiles` is a deliberate stub (`NotImplementedException`) — actually detecting installed profiles by reading each browser's `Local State`/`Preferences` files per OS still needs to be implemented by hand in `StorageBrowserProfileService.GetProfiles`.
