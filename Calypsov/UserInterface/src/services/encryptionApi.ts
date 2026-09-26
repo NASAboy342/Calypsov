@@ -15,6 +15,13 @@ interface EncryptionStatus {
   enabled: boolean
 }
 
+export interface EncryptionProgress {
+  isRunning: boolean
+  completed: number
+  total: number
+  currentItem: string | null
+}
+
 const BASE_URL = '/api/encryption'
 
 export function getStatus() {
@@ -23,6 +30,11 @@ export function getStatus() {
 
 export function toggleStatus() {
   return requestJson<EncryptionStatus>(`${BASE_URL}/toggle`, { method: 'POST' })
+}
+
+/** Safe to poll frequently — cheap, read-only snapshot of an in-flight toggle. */
+export function getProgress() {
+  return requestJson<EncryptionProgress>(`${BASE_URL}/progress`)
 }
 
 export function getTargets() {

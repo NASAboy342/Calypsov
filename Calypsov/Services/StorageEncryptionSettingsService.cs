@@ -18,6 +18,12 @@ public class StorageEncryptionSettingsService : IEncryptionSettingsService
     private readonly string _encryptedFilesFileName = "CalypsovFiles.zip";
     private readonly IBrowserProfileService _browserProfileService;
 
+    // Guards _progress only — deliberately separate from _lock, which is held for the entire
+    // duration of ToggleEncryption(). If GetProgress() shared that lock, every progress poll
+    // would block until the whole encrypt/decrypt run finished, defeating the point of polling.
+    private readonly object _lockProgress = new();
+    private EncryptionProgress _progress = new(IsRunning: false, Completed: 0, Total: 0, CurrentItem: null);
+
     public StorageEncryptionSettingsService(ISettingRepository settingRepository, IBrowserProfileService browserProfileService)
     {
         _settingRepository = settingRepository;
@@ -136,6 +142,22 @@ public class StorageEncryptionSettingsService : IEncryptionSettingsService
         return true;
     }
 
+    public EncryptionProgress GetProgress()
+    {
+        lock (_lockProgress)
+        {
+            return _progress;
+        }
+    }
+
+    private void SetProgress(bool isRunning, int completed, int total, string? currentItem)
+    {
+        lock (_lockProgress)
+        {
+            _progress = new EncryptionProgress(isRunning, completed, total, currentItem);
+        }
+    }
+
     public bool ToggleEncryption()
     {
         lock (_lock)
@@ -157,11 +179,31 @@ public class StorageEncryptionSettingsService : IEncryptionSettingsService
 
     private void ProcessDecryption()
     {
-        DecrypFiles();
-        DecrypFolders();
+        var encrypFolderPath = GetEncrypFolderPath();
+        var totalFiles = Zip.CountManifestEntries(Path.Combine(encrypFolderPath, _encryptedFilesFileName))
+            + Zip.CountManifestEntries(Path.Combine(encrypFolderPath, _encryptedFoldersFileName));
+
+        var completed = 0;
+        SetProgress(isRunning: true, completed: 0, total: totalFiles, currentItem: null);
+
+        void OnFileProcessed(string currentItem)
+        {
+            completed++;
+            SetProgress(isRunning: true, completed: completed, total: totalFiles, currentItem: currentItem);
+        }
+
+        try
+        {
+            DecrypFiles(OnFileProcessed);
+            DecrypFolders(OnFileProcessed);
+        }
+        finally
+        {
+            SetProgress(isRunning: false, completed: totalFiles, total: totalFiles, currentItem: null);
+        }
     }
 
-    private void DecrypFolders()
+    private void DecrypFolders(Action<string>? onFileProcessed = null)
     {
         lock (_lockEncryption)
         {
@@ -170,12 +212,12 @@ public class StorageEncryptionSettingsService : IEncryptionSettingsService
             var encrypFilePath = Path.Combine(encrypFolderPath, encrypFileName);
             if(!File.Exists(encrypFilePath))
                 return;
-            Zip.UnzipFile(encrypFilePath);
+            Zip.UnzipFile(encrypFilePath, onFileProcessed);
             CleanupEncryptedFolderFile();
         }
     }
 
-    private void DecrypFiles()
+    private void DecrypFiles(Action<string>? onFileProcessed = null)
     {
         lock (_lockEncryption)
         {
@@ -184,22 +226,42 @@ public class StorageEncryptionSettingsService : IEncryptionSettingsService
             var encrypFilePath = Path.Combine(encrypFolderPath, encrypFileName);
             if(!File.Exists(encrypFilePath))
                 return;
-            Zip.UnzipFile(encrypFilePath);
+            Zip.UnzipFile(encrypFilePath, onFileProcessed);
             CleanupEncryptedFilesFile();
         }
     }
 
     private void ProcessEncryption()
     {
-        EncrypFiles();
-        EncrypFolders();
-    }
-
-
-    private void EncrypFolders()
-    {
+        var filesToEncryp = GetAppSetting().EncryptionTargets.Where(t => t.Category == EnumTargetCategory.File).Select(t => t.Path).ToList();
         var foldersToEncryp = GetAppSetting().EncryptionTargets.Where(t => t.Category == EnumTargetCategory.Folder).Select(t => t.Path).ToList();
         AddBrowserProfileFolderToFolderToEncryp(foldersToEncryp);
+
+        var totalFiles = filesToEncryp.Count(File.Exists)
+            + foldersToEncryp.Where(Directory.Exists).Sum(f => Directory.GetFiles(f, "*", SearchOption.AllDirectories).Length);
+
+        var completed = 0;
+        SetProgress(isRunning: true, completed: 0, total: totalFiles, currentItem: null);
+
+        void OnFileProcessed(string currentItem)
+        {
+            completed++;
+            SetProgress(isRunning: true, completed: completed, total: totalFiles, currentItem: currentItem);
+        }
+
+        try
+        {
+            EncrypFiles(filesToEncryp, OnFileProcessed);
+            EncrypFolders(foldersToEncryp, OnFileProcessed);
+        }
+        finally
+        {
+            SetProgress(isRunning: false, completed: totalFiles, total: totalFiles, currentItem: null);
+        }
+    }
+
+    private void EncrypFolders(List<string> foldersToEncryp, Action<string>? onFileProcessed = null)
+    {
         lock (_lockEncryption)
         {
             if (!foldersToEncryp.Any()) return;
@@ -208,7 +270,7 @@ public class StorageEncryptionSettingsService : IEncryptionSettingsService
             {
                 var encrypFolderPath = GetEncrypFolderPath();
                 var encrypFileName = _encryptedFoldersFileName;
-                Zip.ZipFolders(foldersToEncryp, encrypFolderPath, encrypFileName);
+                Zip.ZipFolders(foldersToEncryp, encrypFolderPath, encrypFileName, onFileProcessed);
             }
             catch (UnauthorizedAccessException e)
             {
@@ -324,9 +386,8 @@ public class StorageEncryptionSettingsService : IEncryptionSettingsService
         return encrypFolderPath;
     }
 
-    private void EncrypFiles()
+    private void EncrypFiles(List<string> filesToEncryp, Action<string>? onFileProcessed = null)
     {
-        var filesToEncryp = GetAppSetting().EncryptionTargets.Where(t => t.Category == EnumTargetCategory.File).Select(t => t.Path).ToList();
         lock (_lockEncryption)
         {
             if (!filesToEncryp.Any()) return;
@@ -335,7 +396,7 @@ public class StorageEncryptionSettingsService : IEncryptionSettingsService
             {
                 var encrypFolderPath = GetEncrypFolderPath();
                 var encrypFileName = _encryptedFilesFileName;
-                Zip.ZipFiles(filesToEncryp, encrypFolderPath, encrypFileName);
+                Zip.ZipFiles(filesToEncryp, encrypFolderPath, encrypFileName, onFileProcessed);
             }
             catch (UnauthorizedAccessException e)
             {

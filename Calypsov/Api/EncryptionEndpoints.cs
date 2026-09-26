@@ -19,6 +19,9 @@ public static class EncryptionEndpoints
         group.MapPost("/toggle", () =>
             Try(() =>Results.Ok(new EncryptionStatusResponse(settings.ToggleEncryption()))));
 
+        group.MapGet("/progress", () =>
+            Try(() => Results.Ok(settings.GetProgress())));
+
         group.MapGet("/targets", () =>
             Try(() => Results.Ok(settings.GetTargets())));
 

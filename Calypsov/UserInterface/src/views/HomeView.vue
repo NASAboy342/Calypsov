@@ -3,6 +3,7 @@ import { computed } from 'vue'
 import { RouterLink } from 'vue-router'
 import { useEncryptionStore } from '@/stores/encryption'
 import { useTargetsStore } from '@/stores/targets'
+import EncryptionProgressBar from '@/components/EncryptionProgressBar.vue'
 
 const encryption = useEncryptionStore()
 const targets = useTargetsStore()
@@ -29,6 +30,10 @@ const dotClass = computed(() => {
   if (encryption.toggling) return 'bg-amber-300'
   return encryption.enabled ? 'bg-teal-400' : 'bg-neutral-700'
 })
+
+// enabled still holds the pre-toggle value while toggling is true (the store only flips it
+// once the request resolves), so this reflects the direction of the run in progress.
+const progressActionLabel = computed(() => (encryption.enabled ? 'Restoring' : 'Zipping'))
 </script>
 
 <template>
@@ -98,19 +103,16 @@ const dotClass = computed(() => {
           <span class="absolute inset-0 m-auto h-3 w-3 rounded-full transition-colors duration-300" :class="dotClass" />
         </button>
 
-        <p class="text-sm text-neutral-400">
-          <template v-if="encryption.toggling">
-            <span class="inline-flex items-center gap-1.5 text-amber-300">
-              <span class="h-1.5 w-1.5 animate-pulse rounded-full bg-amber-300" />
-              Updating…
-            </span>
-          </template>
-          <template v-else>
-            Encrypt:
-            <strong class="font-semibold" :class="encryption.enabled ? 'text-teal-300' : 'text-neutral-200'">
-              {{ encryption.enabled ? 'On' : 'Off' }}
-            </strong>
-          </template>
+        <EncryptionProgressBar
+          v-if="encryption.toggling"
+          :progress="encryption.progress"
+          :action-label="progressActionLabel"
+        />
+        <p v-else class="text-sm text-neutral-400">
+          Encrypt:
+          <strong class="font-semibold" :class="encryption.enabled ? 'text-teal-300' : 'text-neutral-200'">
+            {{ encryption.enabled ? 'On' : 'Off' }}
+          </strong>
         </p>
 
         <p v-if="encryption.error" class="max-w-56 text-center text-sm text-red-400">

@@ -11,7 +11,8 @@ public static class Zip
     public static string ZipFiles(
         List<string> filePaths,
         string outputFolder,
-        string zipFileName)
+        string zipFileName,
+        Action<string>? onFileProcessed = null)
     {
         Directory.CreateDirectory(outputFolder);
 
@@ -39,6 +40,8 @@ public static class Zip
                     ArchivePath = archivePath,
                     OriginalPath = filePath
                 });
+
+                onFileProcessed?.Invoke(filePath);
             }
 
             // Create manifest.json
@@ -59,7 +62,8 @@ public static class Zip
     public static string ZipFolders(
         List<string> sourceFolders,
         string outputFolder,
-        string zipFileName)
+        string zipFileName,
+        Action<string>? onFileProcessed = null)
     {
         Directory.CreateDirectory(outputFolder);
 
@@ -107,6 +111,8 @@ public static class Zip
                         ArchivePath = archivePath,
                         OriginalPath = filePath
                     });
+
+                    onFileProcessed?.Invoke(filePath);
                 }
             }
 
@@ -126,7 +132,7 @@ public static class Zip
         return zipPath;
     }
 
-    public static void UnzipFile(string zipPath)
+    public static void UnzipFile(string zipPath, Action<string>? onFileProcessed = null)
     {
         if (!File.Exists(zipPath))
             throw new FileNotFoundException(
@@ -134,28 +140,7 @@ public static class Zip
                 zipPath);
 
         using var archive = ZipFile.OpenRead(zipPath);
-
-        // Find manifest
-        var manifestEntry = archive.GetEntry("manifest.json");
-
-        if (manifestEntry == null)
-            throw new InvalidDataException(
-                "manifest.json was not found in the ZIP.");
-
-        // Read manifest
-        ZipMetadata? metadata;
-
-        using (var reader = new StreamReader(
-            manifestEntry.Open()))
-        {
-            var json = reader.ReadToEnd();
-
-            metadata = JsonConvert.DeserializeObject<ZipMetadata>(json);
-        }
-
-        if (metadata == null)
-            throw new InvalidDataException(
-                "Invalid manifest.json.");
+        var metadata = ReadManifest(archive);
 
         // Restore files
         foreach (var file in metadata.Files)
@@ -176,7 +161,42 @@ public static class Zip
             entry.ExtractToFile(
                 file.OriginalPath,
                 overwrite: true);
+
+            onFileProcessed?.Invoke(file.OriginalPath);
         }
+    }
+
+    /// <summary>
+    /// Peeks a zip's manifest for its file count without extracting anything — lets a caller
+    /// compute an overall progress total up front. Returns 0 if the zip doesn't exist.
+    /// </summary>
+    public static int CountManifestEntries(string zipPath)
+    {
+        if (!File.Exists(zipPath))
+            return 0;
+
+        using var archive = ZipFile.OpenRead(zipPath);
+        return ReadManifest(archive).Files.Count;
+    }
+
+    private static ZipMetadata ReadManifest(ZipArchive archive)
+    {
+        var manifestEntry = archive.GetEntry("manifest.json");
+
+        if (manifestEntry == null)
+            throw new InvalidDataException(
+                "manifest.json was not found in the ZIP.");
+
+        using var reader = new StreamReader(manifestEntry.Open());
+        var json = reader.ReadToEnd();
+
+        var metadata = JsonConvert.DeserializeObject<ZipMetadata>(json);
+
+        if (metadata == null)
+            throw new InvalidDataException(
+                "Invalid manifest.json.");
+
+        return metadata;
     }
 }
 

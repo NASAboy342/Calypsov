@@ -12,6 +12,10 @@ public interface IEncryptionSettingsService
     bool SetEncryptionEnabled(bool enabled);
     bool ToggleEncryption();
 
+    /// <summary>A snapshot of the current (or last) encrypt/decrypt run, safe to poll frequently
+    /// while <see cref="ToggleEncryption"/> is in flight on another request.</summary>
+    EncryptionProgress GetProgress();
+
     IReadOnlyList<EncryptionTarget> GetTargets();
 
     /// <summary>Throws <see cref="ArgumentException"/> for an invalid path, or
