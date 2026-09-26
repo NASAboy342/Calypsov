@@ -12,8 +12,25 @@ public class StorageBrowserProfileService : IBrowserProfileService
 
     public IReadOnlyList<BrowserProfile> GetProfiles(BrowserType browser)
     {
-        throw new NotImplementedException(
-            $"Browser profile detection isn't implemented yet — read {browser}'s Local State/Preferences to list real profiles here.");
+        switch (browser)
+        {
+            case BrowserType.Edge:
+            return GetMsEdgeBrowserProfiles();
+            case BrowserType.Chrome:
+            return GetChromeBrowserProfiles();
+            default:
+            return [];
+        }
+    }
+
+    private List<BrowserProfile> GetChromeBrowserProfiles()
+    {
+       return [];
+    }
+
+    private List<BrowserProfile> GetMsEdgeBrowserProfiles()
+    {
+        
     }
 
     public string? GetSelectedProfileId(BrowserType browser)
