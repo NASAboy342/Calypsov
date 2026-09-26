@@ -65,7 +65,7 @@ public class StorageBrowserProfileService : IBrowserProfileService
             if (entry.Value is not JObject info)
                 continue;
 
-            var name = info["name"]?.Value<string>() ?? folderName;
+            var name = GetDisplayName(info, folderName);
             var profileFolderPath = Path.Combine(userDataDirectory, folderName);
             var avatarUrl = TryReadAvatarAsDataUri(profileFolderPath);
 
@@ -73,6 +73,22 @@ public class StorageBrowserProfileService : IBrowserProfileService
         }
 
         return profiles;
+    }
+
+    /// <summary>
+    /// Edge's own "name" field is just the generic "Profile 1"/"Profile 2" the browser assigned
+    /// on creation — not editable-looking text a user would recognize their account by. Prefer
+    /// the signed-in account's email ("user_name"), which is what actually distinguishes two
+    /// profiles signed into different accounts; fall back to the generic name for a profile
+    /// that isn't signed into anything.
+    /// </summary>
+    private static string GetDisplayName(JObject info, string folderName)
+    {
+        var userName = info["user_name"]?.Value<string>();
+        if (!string.IsNullOrWhiteSpace(userName))
+            return userName;
+
+        return info["name"]?.Value<string>() ?? folderName;
     }
 
     private string GetEdgeUserDataDirectory()
