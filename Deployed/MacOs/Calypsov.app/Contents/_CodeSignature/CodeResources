@@ -47,32 +47,32 @@
 			<key>requirement</key>
 			<string>cdhash H"14a5870718582f34834878f88111e6632fcf2a80"</string>
 		</dict>
-		<key>MacOS/wwwroot/assets/SettingsView-d3Onrdf-.js</key>
+		<key>MacOS/wwwroot/assets/SettingsView-D5ZtT63r.js</key>
 		<dict>
 			<key>cdhash</key>
 			<data>
-			/kTmgeLcJirUWQ6VSPfwbk4G8OE=
+			DtlruMGKt310HWcLVPWKdTzZysY=
 			</data>
 			<key>requirement</key>
-			<string>cdhash H"fe44e681e2dc262ad4590e9548f7f06e4e06f0e1"</string>
+			<string>cdhash H"0ed96bb8c18ab77d741d670b54f58a753cd9cac6"</string>
 		</dict>
-		<key>MacOS/wwwroot/assets/index-C121MdEJ.js</key>
+		<key>MacOS/wwwroot/assets/index-BgiHYCR-.css</key>
 		<dict>
 			<key>cdhash</key>
 			<data>
-			HUz/QA8Gi6qXlB+4BWdi2xlskQk=
+			VVI5+j7wLTwbRBh0oG4rYzx2oqM=
 			</data>
 			<key>requirement</key>
-			<string>cdhash H"1d4cff400f068baa97941fb8056762db196c9109"</string>
+			<string>cdhash H"555239fa3ef02d3c1b441874a06e2b633c76a2a3"</string>
 		</dict>
-		<key>MacOS/wwwroot/assets/index-WJtxCaD3.css</key>
+		<key>MacOS/wwwroot/assets/index-GmfiFGKm.js</key>
 		<dict>
 			<key>cdhash</key>
 			<data>
-			dnNcyNeqzZ6/FVjG6hMREZ/b/Vk=
+			xdPXn0haPsaeq62xgBvv+lc8AoM=
 			</data>
 			<key>requirement</key>
-			<string>cdhash H"76735cc8d7aacd9ebf1558c6ea1311119fdbfd59"</string>
+			<string>cdhash H"c5d3d79f485a3ec69eabadb1801beffa573c0283"</string>
 		</dict>
 		<key>MacOS/wwwroot/favicon.ico</key>
 		<dict>
@@ -87,10 +87,10 @@
 		<dict>
 			<key>cdhash</key>
 			<data>
-			PT1hWLsjAfLNsGoHbN5M+XkCJjQ=
+			SiJOEyHLbvZcT+cI+Vwqfvcjl7A=
 			</data>
 			<key>requirement</key>
-			<string>cdhash H"3d3d6158bb2301f2cdb06a076cde4cf979022634"</string>
+			<string>cdhash H"4a224e1321cb6ef65c4fe708f95c2a7ef72397b0"</string>
 		</dict>
 		<key>Resources/app.icns</key>
 		<dict>
