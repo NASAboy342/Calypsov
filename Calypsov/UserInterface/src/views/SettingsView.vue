@@ -10,8 +10,11 @@ import IconClipboard from '@/components/icons/IconClipboard.vue'
 import IconFolderOpen from '@/components/icons/IconFolderOpen.vue'
 import BrowserProfileCard from '@/components/BrowserProfileCard.vue'
 import SettingsSection from '@/components/SettingsSection.vue'
+import ToggleSwitch from '@/components/ToggleSwitch.vue'
+import { useZipSettingsStore } from '@/stores/zipSettings'
 
 const targets = useTargetsStore()
+const zipSettings = useZipSettingsStore()
 
 const category = ref<EnumTargetCategory>(EnumTargetCategory.Folder)
 const path = ref('')
@@ -204,6 +207,48 @@ async function handleBrowse() {
             <p v-else class="text-sm text-neutral-500">No files added yet.</p>
           </section>
         </div>
+      </SettingsSection>
+
+      <SettingsSection
+        title="Encryption Options"
+        description="Fine-tune how your zip archives are built."
+        storage-key="zip-settings"
+      >
+        <div class="flex flex-col divide-y divide-white/10">
+          <div class="flex items-start justify-between gap-4 py-4 first:pt-0 last:pb-0">
+            <div>
+              <p class="text-sm font-semibold text-neutral-100">Turbo Zip</p>
+              <p class="mt-1 max-w-lg text-xs text-neutral-500">
+                Split the zip job across your CPU's available threads once 20+ folders are targeted —
+                finishes much faster, but runs the CPU hotter and uses more power.
+              </p>
+            </div>
+            <ToggleSwitch
+              :model-value="zipSettings.isUseTurboZip"
+              :disabled="zipSettings.saving"
+              aria-label="Toggle Turbo Zip"
+              @update:model-value="zipSettings.setTurboZip"
+            />
+          </div>
+
+          <div class="flex items-start justify-between gap-4 py-4 first:pt-0 last:pb-0">
+            <div>
+              <p class="text-sm font-semibold text-neutral-100">Encrypt Zipped Files</p>
+              <p class="mt-1 max-w-lg text-xs text-neutral-500">
+                Adds a further layer of encryption to the zip output, making it unreadable without this
+                app — more secure, at the cost of a longer zip process.
+              </p>
+            </div>
+            <ToggleSwitch
+              :model-value="zipSettings.isEncryptZippedFile"
+              :disabled="zipSettings.saving"
+              aria-label="Toggle Encrypt Zipped Files"
+              @update:model-value="zipSettings.setEncryptZippedFile"
+            />
+          </div>
+        </div>
+
+        <p v-if="zipSettings.error" class="mt-3 text-xs text-red-400">{{ zipSettings.error }}</p>
       </SettingsSection>
 
       <SettingsSection

@@ -30,6 +30,12 @@ public static class EncryptionEndpoints
 
         group.MapDelete("/targets/{id:guid}", (Guid id) =>
             Try(() => settings.RemoveTarget(id) ? Results.NoContent() : Results.NotFound()));
+
+        group.MapGet("/zip-settings", () =>
+            Try(() => Results.Ok(settings.GetZipSettings())));
+
+        group.MapPut("/zip-settings", (UpdateZipSettingsRequest request) =>
+            Try(() => Results.Ok(settings.SetZipSettings(request.IsUseTurboZip, request.IsEncryptZippedFile))));
     }
 
     /// <summary>

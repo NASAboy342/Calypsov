@@ -4,13 +4,16 @@ import { RouterView } from 'vue-router'
 import AppSidebar from '@/components/AppSidebar.vue'
 import { useEncryptionStore } from '@/stores/encryption'
 import { useTargetsStore } from '@/stores/targets'
+import { useZipSettingsStore } from '@/stores/zipSettings'
 
 const encryption = useEncryptionStore()
 const targets = useTargetsStore()
+const zipSettings = useZipSettingsStore()
 
 onMounted(() => {
   encryption.fetchStatus()
   targets.fetchTargets()
+  zipSettings.fetchZipSettings()
 })
 </script>
 

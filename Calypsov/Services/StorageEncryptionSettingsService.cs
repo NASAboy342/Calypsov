@@ -142,6 +142,27 @@ public class StorageEncryptionSettingsService : IEncryptionSettingsService
         return true;
     }
 
+    public ZipSettings GetZipSettings()
+    {
+        lock (_lock)
+        {
+            var appSetting = GetAppSetting();
+            return new ZipSettings(appSetting.IsUseTurboZip, appSetting.IsEncryptZippedFile);
+        }
+    }
+
+    public ZipSettings SetZipSettings(bool isUseTurboZip, bool isEncryptZippedFile)
+    {
+        lock (_lock)
+        {
+            var appSetting = GetAppSetting();
+            appSetting.IsUseTurboZip = isUseTurboZip;
+            appSetting.IsEncryptZippedFile = isEncryptZippedFile;
+            SaveAppSetting();
+            return new ZipSettings(appSetting.IsUseTurboZip, appSetting.IsEncryptZippedFile);
+        }
+    }
+
     public EncryptionProgress GetProgress()
     {
         lock (_lockProgress)

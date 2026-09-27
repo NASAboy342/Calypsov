@@ -22,6 +22,11 @@ export interface EncryptionProgress {
   currentItem: string | null
 }
 
+export interface ZipSettings {
+  isUseTurboZip: boolean
+  isEncryptZippedFile: boolean
+}
+
 const BASE_URL = '/api/encryption'
 
 export function getStatus() {
@@ -50,4 +55,15 @@ export function addTarget(category: EnumTargetCategory, path: string) {
 
 export function removeTarget(id: string) {
   return requestJson<void>(`${BASE_URL}/targets/${id}`, { method: 'DELETE' })
+}
+
+export function getZipSettings() {
+  return requestJson<ZipSettings>(`${BASE_URL}/zip-settings`)
+}
+
+export function updateZipSettings(settings: ZipSettings) {
+  return requestJson<ZipSettings>(`${BASE_URL}/zip-settings`, {
+    method: 'PUT',
+    body: JSON.stringify(settings),
+  })
 }

@@ -12,6 +12,9 @@ public interface IEncryptionSettingsService
     bool SetEncryptionEnabled(bool enabled);
     bool ToggleEncryption();
 
+    ZipSettings GetZipSettings();
+    ZipSettings SetZipSettings(bool isUseTurboZip, bool isEncryptZippedFile);
+
     /// <summary>A snapshot of the current (or last) encrypt/decrypt run, safe to poll frequently
     /// while <see cref="ToggleEncryption"/> is in flight on another request.</summary>
     EncryptionProgress GetProgress();
