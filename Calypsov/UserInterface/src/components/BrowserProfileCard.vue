@@ -26,11 +26,11 @@ function handleSelect(profileId: string | null) {
 </script>
 
 <template>
-  <section class="rounded-2xl border border-white/10 bg-neutral-900 p-5">
-    <h2 class="mb-3 flex items-center gap-2.5 text-[15px] font-semibold text-neutral-100">
+  <section class="rounded-xl border border-white/10 bg-neutral-950/60 p-4">
+    <h3 class="mb-3 flex items-center gap-2.5 text-sm font-semibold text-neutral-100">
       <component :is="icon" class="h-6 w-6 shrink-0" />
       {{ label }}
-    </h2>
+    </h3>
 
     <div class="flex flex-col gap-1.5">
       <label class="text-xs font-semibold text-neutral-400">Profile</label>
