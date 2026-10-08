@@ -90,20 +90,29 @@ function threadPercent(thread: ZipThreadProgress): number {
       {{ progress!.completed }} / {{ progress!.total }} items
     </p>
 
-    <div v-if="threads.length" class="mt-3 flex flex-col gap-1.5 border-t border-white/10 pt-3">
-      <p class="text-[10px] font-semibold tracking-wide text-teal-400 uppercase">
-        Turbo Zip · {{ threads.length }} threads
-      </p>
-      <div v-for="thread in threads" :key="thread.threadIndex" class="flex items-center gap-2">
-        <span class="w-6 shrink-0 text-[10px] font-semibold text-neutral-500">#{{ thread.threadIndex + 1 }}</span>
-        <div class="h-1.5 flex-1 overflow-hidden rounded-full bg-neutral-800">
-          <div
-            class="h-full rounded-full bg-teal-400/80 transition-[width] duration-200"
-            :style="{ width: `${threadPercent(thread)}%` }"
-          />
+    <Transition
+      enter-active-class="transition duration-200 ease-out"
+      enter-from-class="opacity-0 -translate-y-1"
+      enter-to-class="opacity-100 translate-y-0"
+      leave-active-class="transition duration-150 ease-in"
+      leave-from-class="opacity-100"
+      leave-to-class="opacity-0"
+    >
+      <div v-if="threads.length" class="mt-3 flex flex-col gap-1.5 border-t border-white/10 pt-3">
+        <p class="text-[10px] font-semibold tracking-wide text-teal-400 uppercase">
+          Turbo Zip · {{ threads.length }} threads
+        </p>
+        <div v-for="thread in threads" :key="thread.threadIndex" class="flex items-center gap-2">
+          <span class="w-6 shrink-0 text-[10px] font-semibold text-neutral-500">#{{ thread.threadIndex + 1 }}</span>
+          <div class="h-1.5 flex-1 overflow-hidden rounded-full bg-neutral-800">
+            <div
+              class="h-full rounded-full bg-teal-400/80 transition-[width] duration-200"
+              :style="{ width: `${threadPercent(thread)}%` }"
+            />
+          </div>
+          <span class="w-8 shrink-0 text-right text-[10px] text-neutral-500">{{ threadPercent(thread) }}%</span>
         </div>
-        <span class="w-8 shrink-0 text-right text-[10px] text-neutral-500">{{ threadPercent(thread) }}%</span>
       </div>
-    </div>
+    </Transition>
   </div>
 </template>

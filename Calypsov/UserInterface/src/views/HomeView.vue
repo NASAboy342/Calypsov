@@ -151,21 +151,40 @@ const heroGlowStyle = computed(() => {
             </button>
           </div>
 
-          <EncryptionProgressBar
-            v-if="encryption.toggling"
-            :progress="encryption.progress"
-            :action-label="progressActionLabel"
-          />
-          <p v-else class="text-sm text-neutral-400">
-            Encrypt:
-            <strong class="font-semibold" :class="encryption.enabled ? 'text-teal-300' : 'text-neutral-200'">
-              {{ encryption.enabled ? 'On' : 'Off' }}
-            </strong>
-          </p>
+          <Transition
+            mode="out-in"
+            enter-active-class="transition duration-200 ease-out"
+            enter-from-class="opacity-0 scale-95"
+            enter-to-class="opacity-100 scale-100"
+            leave-active-class="transition duration-150 ease-in"
+            leave-from-class="opacity-100 scale-100"
+            leave-to-class="opacity-0 scale-95"
+          >
+            <EncryptionProgressBar
+              v-if="encryption.toggling"
+              :progress="encryption.progress"
+              :action-label="progressActionLabel"
+            />
+            <p v-else class="text-sm text-neutral-400">
+              Encrypt:
+              <strong class="font-semibold" :class="encryption.enabled ? 'text-teal-300' : 'text-neutral-200'">
+                {{ encryption.enabled ? 'On' : 'Off' }}
+              </strong>
+            </p>
+          </Transition>
 
-          <p v-if="encryption.error" class="max-w-56 text-center text-sm text-red-400">
-            {{ encryption.error }}
-          </p>
+          <Transition
+            enter-active-class="transition duration-200 ease-out"
+            enter-from-class="opacity-0"
+            enter-to-class="opacity-100"
+            leave-active-class="transition duration-150 ease-in"
+            leave-from-class="opacity-100"
+            leave-to-class="opacity-0"
+          >
+            <p v-if="encryption.error" class="max-w-56 text-center text-sm text-red-400">
+              {{ encryption.error }}
+            </p>
+          </Transition>
         </div>
       </div>
     </div>

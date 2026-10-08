@@ -67,8 +67,15 @@ function toggle() {
       />
     </button>
 
-    <div v-if="open" class="border-t border-white/10 p-5">
-      <slot />
+    <div
+      class="grid transition-[grid-template-rows] duration-300 ease-in-out"
+      :class="open ? 'grid-rows-[1fr]' : 'grid-rows-[0fr]'"
+    >
+      <div class="overflow-hidden">
+        <div class="border-t border-white/10 p-5">
+          <slot />
+        </div>
+      </div>
     </div>
   </section>
 </template>

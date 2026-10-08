@@ -158,7 +158,18 @@ async function handleBrowse() {
                 {{ targets.folders.length }}
               </span>
             </h3>
-            <ul v-if="targets.folders.length" class="flex max-h-96 flex-col gap-2 overflow-y-auto pr-1">
+            <TransitionGroup
+              v-if="targets.folders.length"
+              tag="ul"
+              class="flex max-h-96 flex-col gap-2 overflow-y-auto pr-1"
+              enter-active-class="transition duration-200 ease-out"
+              enter-from-class="opacity-0 -translate-x-2"
+              enter-to-class="opacity-100 translate-x-0"
+              leave-active-class="transition duration-150 ease-in"
+              leave-from-class="opacity-100"
+              leave-to-class="opacity-0"
+              move-class="transition-transform duration-200 ease-out"
+            >
               <li
                 v-for="t in targets.folders"
                 :key="t.id"
@@ -175,7 +186,7 @@ async function handleBrowse() {
                   <IconTrash class="h-4 w-4" />
                 </button>
               </li>
-            </ul>
+            </TransitionGroup>
             <p v-else class="text-sm text-neutral-500">No folders added yet.</p>
           </section>
 
@@ -186,7 +197,18 @@ async function handleBrowse() {
                 {{ targets.files.length }}
               </span>
             </h3>
-            <ul v-if="targets.files.length" class="flex max-h-96 flex-col gap-2 overflow-y-auto pr-1">
+            <TransitionGroup
+              v-if="targets.files.length"
+              tag="ul"
+              class="flex max-h-96 flex-col gap-2 overflow-y-auto pr-1"
+              enter-active-class="transition duration-200 ease-out"
+              enter-from-class="opacity-0 -translate-x-2"
+              enter-to-class="opacity-100 translate-x-0"
+              leave-active-class="transition duration-150 ease-in"
+              leave-from-class="opacity-100"
+              leave-to-class="opacity-0"
+              move-class="transition-transform duration-200 ease-out"
+            >
               <li
                 v-for="t in targets.files"
                 :key="t.id"
@@ -203,7 +225,7 @@ async function handleBrowse() {
                   <IconTrash class="h-4 w-4" />
                 </button>
               </li>
-            </ul>
+            </TransitionGroup>
             <p v-else class="text-sm text-neutral-500">No files added yet.</p>
           </section>
         </div>
