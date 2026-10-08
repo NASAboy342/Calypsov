@@ -5,15 +5,22 @@ import AppSidebar from '@/components/AppSidebar.vue'
 import { useEncryptionStore } from '@/stores/encryption'
 import { useTargetsStore } from '@/stores/targets'
 import { useZipSettingsStore } from '@/stores/zipSettings'
+import { useBrowserProfilesStore } from '@/stores/browserProfiles'
+import { BrowserType } from '@/services/browsersApi'
 
 const encryption = useEncryptionStore()
 const targets = useTargetsStore()
 const zipSettings = useZipSettingsStore()
+const browserProfiles = useBrowserProfilesStore()
 
 onMounted(() => {
   encryption.fetchStatus()
   targets.fetchTargets()
   zipSettings.fetchZipSettings()
+  // Fetched here (not lazily in BrowserProfileCard alone) so the Home dashboard's
+  // "configuration snapshot" has real selection data ready without requiring a Settings visit first.
+  browserProfiles.fetchProfiles(BrowserType.Edge)
+  browserProfiles.fetchProfiles(BrowserType.Chrome)
 })
 </script>
 
