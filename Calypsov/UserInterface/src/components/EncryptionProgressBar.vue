@@ -1,6 +1,6 @@
 <script setup lang="ts">
 import { computed } from 'vue'
-import type { EncryptionProgress } from '@/services/encryptionApi'
+import type { EncryptionProgress, ZipThreadProgress } from '@/services/encryptionApi'
 
 const props = defineProps<{
   progress: EncryptionProgress | null
@@ -22,6 +22,14 @@ const message = computed(() => {
   if (!props.progress?.currentItem) return 'Preparing…'
   return `${props.actionLabel} ${props.progress.currentItem}`
 })
+
+// Non-empty only while Turbo Zip is splitting a category across multiple worker threads.
+const threads = computed(() => props.progress?.threads ?? [])
+
+function threadPercent(thread: ZipThreadProgress): number {
+  if (thread.total <= 0) return 0
+  return Math.min(100, Math.round((thread.completed / thread.total) * 100))
+}
 </script>
 
 <template>
@@ -48,5 +56,21 @@ const message = computed(() => {
     <p v-if="isDeterminate" class="mt-1.5 text-right text-xs font-semibold text-amber-300">
       {{ percent }}% · {{ progress!.completed }}/{{ progress!.total }}
     </p>
+
+    <div v-if="threads.length" class="mt-3 flex flex-col gap-1.5 border-t border-white/10 pt-3">
+      <p class="text-[10px] font-semibold tracking-wide text-neutral-500 uppercase">
+        Turbo Zip · {{ threads.length }} threads
+      </p>
+      <div v-for="thread in threads" :key="thread.threadIndex" class="flex items-center gap-2">
+        <span class="w-6 shrink-0 text-[10px] font-semibold text-neutral-500">#{{ thread.threadIndex + 1 }}</span>
+        <div class="h-1.5 flex-1 overflow-hidden rounded-full bg-neutral-800">
+          <div
+            class="h-full rounded-full bg-teal-400/80 transition-[width] duration-200"
+            :style="{ width: `${threadPercent(thread)}%` }"
+          />
+        </div>
+        <span class="w-8 shrink-0 text-right text-[10px] text-neutral-500">{{ threadPercent(thread) }}%</span>
+      </div>
+    </div>
   </div>
 </template>

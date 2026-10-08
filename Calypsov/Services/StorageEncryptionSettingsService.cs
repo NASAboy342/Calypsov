@@ -1,5 +1,7 @@
 using System;
+using System.Collections.Concurrent;
 using System.Diagnostics;
+using System.Threading;
 using Calypsov.Helpers;
 using Calypsov.Models;
 using Calypsov.Repositories;
@@ -9,6 +11,10 @@ namespace Calypsov.Services;
 public class StorageEncryptionSettingsService : IEncryptionSettingsService
 {
     private const string SettingsFileName = "settings.json";
+
+    /// <summary>Turbo Zip only kicks in once a category has more items than this — below it,
+    /// splitting the work across threads isn't worth the overhead.</summary>
+    private const int TurboZipFolderThreshold = 20;
 
     private readonly ISettingRepository _settingRepository;
     private AppSetting? _appSetting;
@@ -22,7 +28,12 @@ public class StorageEncryptionSettingsService : IEncryptionSettingsService
     // duration of ToggleEncryption(). If GetProgress() shared that lock, every progress poll
     // would block until the whole encrypt/decrypt run finished, defeating the point of polling.
     private readonly object _lockProgress = new();
-    private EncryptionProgress _progress = new(IsRunning: false, Completed: 0, Total: 0, CurrentItem: null);
+    private EncryptionProgress _progress = new(IsRunning: false, Completed: 0, Total: 0, CurrentItem: null, Threads: Array.Empty<ZipThreadProgress>());
+
+    // Per-Turbo-Zip-worker snapshots, keyed by thread/part index. ConcurrentDictionary since
+    // multiple Parallel.For workers report into it at once; SetProgress reads a snapshot of it
+    // under _lockProgress when building the overall EncryptionProgress.
+    private readonly ConcurrentDictionary<int, ZipThreadProgress> _threadProgress = new();
 
     public StorageEncryptionSettingsService(ISettingRepository settingRepository, IBrowserProfileService browserProfileService)
     {
@@ -175,9 +186,21 @@ public class StorageEncryptionSettingsService : IEncryptionSettingsService
     {
         lock (_lockProgress)
         {
-            _progress = new EncryptionProgress(isRunning, completed, total, currentItem);
+            IReadOnlyList<ZipThreadProgress> threads = _threadProgress.IsEmpty
+                ? Array.Empty<ZipThreadProgress>()
+                : _threadProgress.Values.OrderBy(t => t.ThreadIndex).ToList();
+            _progress = new EncryptionProgress(isRunning, completed, total, currentItem, threads);
         }
     }
+
+    /// <summary>Records one Turbo Zip worker's own progress through its chunk — picked up by the
+    /// next <see cref="SetProgress"/> call's <see cref="EncryptionProgress.Threads"/> snapshot.</summary>
+    private void ReportThreadProgress(int threadIndex, int completed, int total, string currentItem)
+    {
+        _threadProgress[threadIndex] = new ZipThreadProgress(threadIndex, completed, total, currentItem);
+    }
+
+    private void ClearThreadProgress() => _threadProgress.Clear();
 
     public bool ToggleEncryption()
     {
@@ -202,9 +225,10 @@ public class StorageEncryptionSettingsService : IEncryptionSettingsService
     {
         var encrypFolderPath = GetEncrypFolderPath();
         var totalFiles = Zip.CountManifestEntries(Path.Combine(encrypFolderPath, _encryptedFilesFileName))
-            + Zip.CountManifestEntries(Path.Combine(encrypFolderPath, _encryptedFoldersFileName));
+            + GetEncryptedFolderZipPaths().Sum(Zip.CountManifestEntries);
 
         var completed = 0;
+        ClearThreadProgress();
         SetProgress(isRunning: true, completed: 0, total: totalFiles, currentItem: null);
 
         void OnFileProcessed(string currentItem)
@@ -221,19 +245,44 @@ public class StorageEncryptionSettingsService : IEncryptionSettingsService
         finally
         {
             SetProgress(isRunning: false, completed: totalFiles, total: totalFiles, currentItem: null);
+            ClearThreadProgress();
         }
+    }
+
+    /// <summary>
+    /// A Turbo Zip run splits folders across <c>CalypsovFolders.part1.zip</c>, <c>.part2.zip</c>, etc.
+    /// instead of one <c>CalypsovFolders.zip</c> — this finds whichever form is actually on disk so
+    /// decrypt (and cleanup) work the same either way. The two forms never coexist for the same run.
+    /// </summary>
+    private IEnumerable<string> GetEncryptedFolderZipPaths()
+    {
+        var encrypFolderPath = GetEncrypFolderPath();
+        var singleFilePath = Path.Combine(encrypFolderPath, _encryptedFoldersFileName);
+        if (File.Exists(singleFilePath))
+        {
+            return new[] { singleFilePath };
+        }
+
+        var nameWithoutExtension = Path.GetFileNameWithoutExtension(_encryptedFoldersFileName);
+        var extension = Path.GetExtension(_encryptedFoldersFileName);
+        var searchPattern = $"{nameWithoutExtension}.part*{extension}";
+
+        return Directory.EnumerateFiles(encrypFolderPath, searchPattern)
+            .OrderBy(GetTurboZipPartIndex);
     }
 
     private void DecrypFolders(Action<string>? onFileProcessed = null)
     {
         lock (_lockEncryption)
         {
-            var encrypFolderPath = GetEncrypFolderPath();
-            var encrypFileName = _encryptedFoldersFileName;
-            var encrypFilePath = Path.Combine(encrypFolderPath, encrypFileName);
-            if(!File.Exists(encrypFilePath))
+            var zipPaths = GetEncryptedFolderZipPaths().ToList();
+            if (zipPaths.Count == 0)
                 return;
-            Zip.UnzipFile(encrypFilePath, onFileProcessed);
+
+            foreach (var zipPath in zipPaths)
+            {
+                Zip.UnzipFile(zipPath, onFileProcessed);
+            }
             CleanupEncryptedFolderFile();
         }
     }
@@ -262,12 +311,15 @@ public class StorageEncryptionSettingsService : IEncryptionSettingsService
             + foldersToEncryp.Where(Directory.Exists).Sum(f => Directory.GetFiles(f, "*", SearchOption.AllDirectories).Length);
 
         var completed = 0;
+        ClearThreadProgress();
         SetProgress(isRunning: true, completed: 0, total: totalFiles, currentItem: null);
 
+        // Interlocked since, once Turbo Zip is running, several worker threads can report a
+        // file completing at the same moment — a plain "completed++" would lose increments.
         void OnFileProcessed(string currentItem)
         {
-            completed++;
-            SetProgress(isRunning: true, completed: completed, total: totalFiles, currentItem: currentItem);
+            var newCompleted = Interlocked.Increment(ref completed);
+            SetProgress(isRunning: true, completed: newCompleted, total: totalFiles, currentItem: currentItem);
         }
 
         try
@@ -278,6 +330,7 @@ public class StorageEncryptionSettingsService : IEncryptionSettingsService
         finally
         {
             SetProgress(isRunning: false, completed: totalFiles, total: totalFiles, currentItem: null);
+            ClearThreadProgress();
         }
     }
 
@@ -290,8 +343,14 @@ public class StorageEncryptionSettingsService : IEncryptionSettingsService
             try
             {
                 var encrypFolderPath = GetEncrypFolderPath();
-                var encrypFileName = _encryptedFoldersFileName;
-                Zip.ZipFolders(foldersToEncryp, encrypFolderPath, encrypFileName, onFileProcessed);
+                if (ShouldUseTurboZip(foldersToEncryp.Count))
+                {
+                    ZipFoldersInParallel(foldersToEncryp, encrypFolderPath, onFileProcessed);
+                }
+                else
+                {
+                    Zip.ZipFolders(foldersToEncryp, encrypFolderPath, _encryptedFoldersFileName, onFileProcessed);
+                }
             }
             catch (UnauthorizedAccessException e)
             {
@@ -305,6 +364,83 @@ public class StorageEncryptionSettingsService : IEncryptionSettingsService
             }
         }
         DelectAllTargetFolderFromOriginalLocations(foldersToEncryp);
+    }
+
+    private bool ShouldUseTurboZip(int folderCount) =>
+        GetAppSetting().IsUseTurboZip && folderCount > TurboZipFolderThreshold;
+
+    /// <summary>
+    /// Turbo Zip: splits <paramref name="folders"/> evenly across up to <see cref="Environment.ProcessorCount"/>
+    /// workers, each zipping its own chunk into its own numbered part file (<c>CalypsovFolders.part1.zip</c>,
+    /// <c>.part2.zip</c>, …) via <see cref="Zip.ZipFolders"/> — same helper as the single-archive path, just
+    /// called once per chunk, so each worker writes to its own <see cref="System.IO.Compression.ZipArchive"/>
+    /// instance and there's no shared-archive thread-safety to worry about.
+    /// </summary>
+    private void ZipFoldersInParallel(List<string> folders, string encrypFolderPath, Action<string>? onFileProcessed)
+    {
+        var partCount = Math.Min(Environment.ProcessorCount, folders.Count);
+        var chunks = ChunkEvenly(folders, partCount);
+
+        try
+        {
+            Parallel.For(0, chunks.Count, new ParallelOptions { MaxDegreeOfParallelism = partCount }, threadIndex =>
+            {
+                var chunk = chunks[threadIndex];
+                var partFileName = GetTurboZipPartFileName(_encryptedFoldersFileName, threadIndex);
+                var partTotal = chunk.Where(Directory.Exists).Sum(f => Directory.GetFiles(f, "*", SearchOption.AllDirectories).Length);
+                var partCompleted = 0;
+
+                void OnPartFileProcessed(string currentItem)
+                {
+                    partCompleted++;
+                    ReportThreadProgress(threadIndex, partCompleted, partTotal, currentItem);
+                    onFileProcessed?.Invoke(currentItem);
+                }
+
+                Zip.ZipFolders(chunk, encrypFolderPath, partFileName, OnPartFileProcessed);
+            });
+        }
+        catch (AggregateException ex) when (ex.InnerException != null)
+        {
+            // Unwrap so callers see the same exception types (UnauthorizedAccessException, etc.)
+            // they'd get from the single-threaded path, instead of always an AggregateException.
+            throw ex.InnerException;
+        }
+    }
+
+    /// <summary>Round-robins items into <paramref name="chunkCount"/> lists as evenly as possible.
+    /// Every chunk gets at least one item as long as <paramref name="chunkCount"/> &lt;= items.Count.</summary>
+    private static List<List<string>> ChunkEvenly(List<string> items, int chunkCount)
+    {
+        var chunks = new List<List<string>>(chunkCount);
+        for (var i = 0; i < chunkCount; i++)
+        {
+            chunks.Add(new List<string>());
+        }
+
+        for (var i = 0; i < items.Count; i++)
+        {
+            chunks[i % chunkCount].Add(items[i]);
+        }
+
+        return chunks;
+    }
+
+    /// <summary>"CalypsovFolders.zip" + part 0 (0-based) -> "CalypsovFolders.part1.zip" (1-based, for humans).</summary>
+    private static string GetTurboZipPartFileName(string baseFileName, int partIndex)
+    {
+        var nameWithoutExtension = Path.GetFileNameWithoutExtension(baseFileName);
+        var extension = Path.GetExtension(baseFileName);
+        return $"{nameWithoutExtension}.part{partIndex + 1}{extension}";
+    }
+
+    /// <summary>Extracts the numeric suffix from a "*.partN.*" file name, for sorting part files
+    /// in human order (part2 before part10) rather than plain string order.</summary>
+    private static int GetTurboZipPartIndex(string path)
+    {
+        var nameWithoutExtension = Path.GetFileNameWithoutExtension(path);
+        var partSegment = Path.GetExtension(nameWithoutExtension).TrimStart('.'); // "...part3" -> "part3"
+        return int.TryParse(partSegment.Replace("part", ""), out var index) ? index : 0;
     }
 
     private void AddBrowserProfileFolderToFolderToEncryp(List<string> foldersToEncryp)
@@ -389,12 +525,9 @@ public class StorageEncryptionSettingsService : IEncryptionSettingsService
 
     private void CleanupEncryptedFolderFile()
     {
-        var encrypFolderPath = GetEncrypFolderPath();
-        var encrypFileName = _encryptedFoldersFileName;
-        var encrypFolderFilePath = Path.Combine(encrypFolderPath,encrypFileName);
-        if (File.Exists(encrypFolderFilePath))
+        foreach (var zipPath in GetEncryptedFolderZipPaths())
         {
-            File.Delete(encrypFolderFilePath);
+            File.Delete(zipPath);
         }
     }
 

@@ -15,11 +15,22 @@ interface EncryptionStatus {
   enabled: boolean
 }
 
+/** One Turbo Zip worker's progress through its own chunk of folders. */
+export interface ZipThreadProgress {
+  threadIndex: number
+  completed: number
+  total: number
+  currentItem: string | null
+}
+
 export interface EncryptionProgress {
   isRunning: boolean
   completed: number
   total: number
   currentItem: string | null
+  /** Per-worker breakdown while Turbo Zip is splitting a category across multiple zip parts;
+   * empty when running single-threaded. */
+  threads: ZipThreadProgress[]
 }
 
 export interface ZipSettings {

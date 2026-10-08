@@ -53,7 +53,8 @@ public sealed class MemoryEncryptionSettingsService : IEncryptionSettingsService
     }
 
     /// <summary>This stand-in doesn't do any real zip/unzip work, so there's never anything running.</summary>
-    public EncryptionProgress GetProgress() => new(IsRunning: false, Completed: 0, Total: 0, CurrentItem: null);
+    public EncryptionProgress GetProgress() =>
+        new(IsRunning: false, Completed: 0, Total: 0, CurrentItem: null, Threads: Array.Empty<ZipThreadProgress>());
 
     public IReadOnlyList<EncryptionTarget> GetTargets()
     {
