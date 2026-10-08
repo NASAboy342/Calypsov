@@ -11,11 +11,7 @@ const activeLinkClass = 'bg-teal-400/10 text-teal-300'
 <template>
   <aside class="flex w-60 shrink-0 flex-col gap-8 border-r border-white/10 bg-neutral-950 px-4 py-7">
     <div class="flex items-center gap-2.5 px-2">
-      <span
-        class="flex h-8 w-8 items-center justify-center rounded-md bg-teal-400 text-sm font-bold text-neutral-950"
-      >
-        C
-      </span>
+      <img src="/favicon.ico" alt="Calypsov" class="h-8 w-8 shrink-0 rounded-md" />
       <span class="text-base font-semibold tracking-tight text-neutral-100">Calypsov</span>
     </div>
 
