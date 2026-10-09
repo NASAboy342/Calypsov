@@ -56,6 +56,15 @@
 			<key>requirement</key>
 			<string>cdhash H"b569323621a98e6c4f24b096bf4002b560856b90"</string>
 		</dict>
+		<key>MacOS/wwwroot/assets/SettingsView-j_zfGFzH.js</key>
+		<dict>
+			<key>cdhash</key>
+			<data>
+			g4tRyKMOlLkms+XWQj83kgBQYNI=
+			</data>
+			<key>requirement</key>
+			<string>cdhash H"838b51c8a30e94b926b3e5d6423f3792005060d2"</string>
+		</dict>
 		<key>MacOS/wwwroot/assets/index-Cbf2g57v.js</key>
 		<dict>
 			<key>cdhash</key>
@@ -64,6 +73,24 @@
 			</data>
 			<key>requirement</key>
 			<string>cdhash H"cc914896917f8f4fc734eaf8c94c269341ea507d"</string>
+		</dict>
+		<key>MacOS/wwwroot/assets/index-DQjqGkGb.js</key>
+		<dict>
+			<key>cdhash</key>
+			<data>
+			YHLgXFzrqIImMIobJzNSzVAflnk=
+			</data>
+			<key>requirement</key>
+			<string>cdhash H"6072e05c5ceba88226308a1b273352cd501f9679"</string>
+		</dict>
+		<key>MacOS/wwwroot/assets/index-DUkUPH1_.css</key>
+		<dict>
+			<key>cdhash</key>
+			<data>
+			kGATfHJH9FLSjfHSiUfDP6uI2XA=
+			</data>
+			<key>requirement</key>
+			<string>cdhash H"9060137c7247f452d28df1d28947c33fab88d970"</string>
 		</dict>
 		<key>MacOS/wwwroot/assets/index-DbqPQ1md.css</key>
 		<dict>
@@ -87,10 +114,10 @@
 		<dict>
 			<key>cdhash</key>
 			<data>
-			5c2wmZUE3/gSdONrGCavB/bocd0=
+			7TXbfxL71993QTmwIR0cQLfU67Y=
 			</data>
 			<key>requirement</key>
-			<string>cdhash H"e5cdb0999504dff81274e36b1826af07f6e871dd"</string>
+			<string>cdhash H"ed35db7f12fbd7df774139b0211d1c40b7d4ebb6"</string>
 		</dict>
 		<key>Resources/app.icns</key>
 		<dict>
