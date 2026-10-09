@@ -15,6 +15,14 @@ public interface IEncryptionSettingsService
     ZipSettings GetZipSettings();
     ZipSettings SetZipSettings(bool isUseTurboZip, bool isEncryptZippedFile);
 
+    /// <summary>
+    /// Backs <see cref="ILogService"/>'s IsRecordLog toggle. Lives here (alongside the other
+    /// AppSetting-backed flags) rather than on a second service reading/writing the same
+    /// settings file, so there's exactly one in-memory cache of AppSetting to stay consistent.
+    /// </summary>
+    bool GetIsRecordLogEnabled();
+    bool SetIsRecordLogEnabled(bool enabled);
+
     /// <summary>A snapshot of the current (or last) encrypt/decrypt run, safe to poll frequently
     /// while <see cref="ToggleEncryption"/> is in flight on another request.</summary>
     EncryptionProgress GetProgress();

@@ -14,51 +14,27 @@ public static class EncryptionEndpoints
         var group = app.MapGroup("/api/encryption");
 
         group.MapGet("/status", () =>
-            Try(() => Results.Ok(new EncryptionStatusResponse(settings.IsEncryptionEnabled()))));
+            EndpointHelpers.Try(() => Results.Ok(new EncryptionStatusResponse(settings.IsEncryptionEnabled()))));
 
         group.MapPost("/toggle", () =>
-            Try(() =>Results.Ok(new EncryptionStatusResponse(settings.ToggleEncryption()))));
+            EndpointHelpers.Try(() =>Results.Ok(new EncryptionStatusResponse(settings.ToggleEncryption()))));
 
         group.MapGet("/progress", () =>
-            Try(() => Results.Ok(settings.GetProgress())));
+            EndpointHelpers.Try(() => Results.Ok(settings.GetProgress())));
 
         group.MapGet("/targets", () =>
-            Try(() => Results.Ok(settings.GetTargets())));
+            EndpointHelpers.Try(() => Results.Ok(settings.GetTargets())));
 
         group.MapPost("/targets", (AddTargetRequest request) =>
-            Try(() => Results.Ok(settings.AddTarget(request.Category, request.Path))));
+            EndpointHelpers.Try(() => Results.Ok(settings.AddTarget(request.Category, request.Path))));
 
         group.MapDelete("/targets/{id:guid}", (Guid id) =>
-            Try(() => settings.RemoveTarget(id) ? Results.NoContent() : Results.NotFound()));
+            EndpointHelpers.Try(() => settings.RemoveTarget(id) ? Results.NoContent() : Results.NotFound()));
 
         group.MapGet("/zip-settings", () =>
-            Try(() => Results.Ok(settings.GetZipSettings())));
+            EndpointHelpers.Try(() => Results.Ok(settings.GetZipSettings())));
 
         group.MapPut("/zip-settings", (UpdateZipSettingsRequest request) =>
-            Try(() => Results.Ok(settings.SetZipSettings(request.IsUseTurboZip, request.IsEncryptZippedFile))));
-    }
-
-    /// <summary>
-    /// Runs an endpoint body and turns any exception into a JSON <see cref="ErrorResponse"/> with the
-    /// exact exception message, so the UI can show the caller exactly what the backend reported.
-    /// </summary>
-    private static IResult Try(Func<IResult> body)
-    {
-        try
-        {
-            return body();
-        }
-        catch (ArgumentException ex)
-        {
-            return Results.BadRequest(new ErrorResponse(ex.Message));
-        }
-        catch (InvalidOperationException ex)
-        {
-            return Results.Conflict(new ErrorResponse(ex.Message));
-        }
-        catch (Exception ex)
-        {
-            return Results.Json(new ErrorResponse(ex.Message), statusCode: StatusCodes.Status500InternalServerError);
-        }
+            EndpointHelpers.Try(() => Results.Ok(settings.SetZipSettings(request.IsUseTurboZip, request.IsEncryptZippedFile))));
     }
 }

@@ -39,6 +39,54 @@ public class SettingRepository : ISettingRepository
         }
     }
 
+    public void AppendText(string folderName, string fileName, string content)
+    {
+        lock (_lockFile)
+        {
+            var filePath = Path.Combine(GetSubFolderPath(folderName), fileName);
+            File.AppendAllText(filePath, content);
+        }
+    }
+
+    public string? ReadText(string folderName, string fileName)
+    {
+        lock (_lockFile)
+        {
+            var filePath = Path.Combine(GetSubFolderPath(folderName), fileName);
+            return File.Exists(filePath) ? File.ReadAllText(filePath) : null;
+        }
+    }
+
+    public IReadOnlyList<FileEntry> ListFiles(string folderName)
+    {
+        lock (_lockFile)
+        {
+            var folderPath = GetSubFolderPath(folderName);
+            return Directory.GetFiles(folderPath)
+                .Select(filePath => new FileEntry(Path.GetFileName(filePath), File.GetLastWriteTimeUtc(filePath)))
+                .ToList();
+        }
+    }
+
+    public void DeleteFile(string folderName, string fileName)
+    {
+        lock (_lockFile)
+        {
+            var filePath = Path.Combine(GetSubFolderPath(folderName), fileName);
+            if (File.Exists(filePath))
+            {
+                File.Delete(filePath);
+            }
+        }
+    }
+
+    private string GetSubFolderPath(string folderName)
+    {
+        var folderPath = Path.Combine(GetAppDataFolder(), folderName);
+        IfFolderNotExistCreateOne(folderPath);
+        return folderPath;
+    }
+
     private string GetSettingFilePath(string fileName)
     {
         var appDirectory = GetAppDataFolder();

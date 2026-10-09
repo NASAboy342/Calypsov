@@ -12,9 +12,11 @@ import BrowserProfileCard from '@/components/BrowserProfileCard.vue'
 import SettingsSection from '@/components/SettingsSection.vue'
 import ToggleSwitch from '@/components/ToggleSwitch.vue'
 import { useZipSettingsStore } from '@/stores/zipSettings'
+import { useLogSettingsStore } from '@/stores/logSettings'
 
 const targets = useTargetsStore()
 const zipSettings = useZipSettingsStore()
+const logSettings = useLogSettingsStore()
 
 const category = ref<EnumTargetCategory>(EnumTargetCategory.Folder)
 const path = ref('')
@@ -282,6 +284,30 @@ async function handleBrowse() {
           <BrowserProfileCard :browser="BrowserType.Edge" />
           <BrowserProfileCard :browser="BrowserType.Chrome" />
         </div>
+      </SettingsSection>
+
+      <SettingsSection
+        title="Logging"
+        description="Record app activity and errors to a log file you can review on the Logs page."
+        storage-key="logging"
+      >
+        <div class="flex items-start justify-between gap-4">
+          <div>
+            <p class="text-sm font-semibold text-neutral-100">Record Logs</p>
+            <p class="mt-1 max-w-lg text-xs text-neutral-500">
+              When on, API activity and errors are queued and written to a dated file under Logs — kept
+              for the last 4 days. When off, nothing is recorded and no background work runs.
+            </p>
+          </div>
+          <ToggleSwitch
+            :model-value="logSettings.isRecordLog"
+            :disabled="logSettings.saving"
+            aria-label="Toggle log recording"
+            @update:model-value="logSettings.setRecordLog"
+          />
+        </div>
+
+        <p v-if="logSettings.error" class="mt-3 text-xs text-red-400">{{ logSettings.error }}</p>
       </SettingsSection>
     </div>
   </div>

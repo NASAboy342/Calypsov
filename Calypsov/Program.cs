@@ -49,10 +49,27 @@ class Program
 
         services.AddSingleton<IBrowserProfileService, StorageBrowserProfileService>();
 
+        services.AddSingleton<ILogService, LogService>();
+
         using var serviceProvider = services.BuildServiceProvider();
+
+        // Resolving ILogService here (rather than lazily, on first use) is what makes the
+        // "check the IsRecordLog setting and kick-start the scheduler on app start" behavior
+        // actually happen at startup — LogService's constructor does that check.
+        var logService = serviceProvider.GetRequiredService<ILogService>();
+
+        // EndpointHelpers.Try(...) is the shared error-wrapper every endpoint group's body runs
+        // through — giving it the log service here means every endpoint exception gets logged
+        // without each Endpoints file needing its own ILogService parameter.
+        Calypsov.Api.EndpointHelpers.LogService = logService;
+
+        // Logs every /api/* request's method, path, status code, and request/response bodies.
+        // Scoped to /api so this doesn't also log every static wwwroot asset request.
+        app.UseApiRequestLogging(logService);
 
         app.MapEncryptionEndpoints(serviceProvider.GetRequiredService<IEncryptionSettingsService>());
         app.MapBrowserEndpoints(serviceProvider.GetRequiredService<IBrowserProfileService>());
+        app.MapLogEndpoints(logService);
 
         // The appUrl is set to the local development server when in debug mode.
         // This helps with hot reloading and debugging.

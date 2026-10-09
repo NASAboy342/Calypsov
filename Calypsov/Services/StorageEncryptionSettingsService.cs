@@ -174,6 +174,26 @@ public class StorageEncryptionSettingsService : IEncryptionSettingsService
         }
     }
 
+    public bool GetIsRecordLogEnabled()
+    {
+        lock (_lock)
+        {
+            var appSetting = GetAppSetting();
+            return appSetting.IsRecordLog;
+        }
+    }
+
+    public bool SetIsRecordLogEnabled(bool enabled)
+    {
+        lock (_lock)
+        {
+            var appSetting = GetAppSetting();
+            appSetting.IsRecordLog = enabled;
+            SaveAppSetting();
+            return appSetting.IsRecordLog;
+        }
+    }
+
     public EncryptionProgress GetProgress()
     {
         lock (_lockProgress)

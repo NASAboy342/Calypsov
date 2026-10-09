@@ -2,6 +2,7 @@
 import { RouterLink } from 'vue-router'
 import IconHome from './icons/IconHome.vue'
 import IconSettings from './icons/IconSettings.vue'
+import IconLogs from './icons/IconLogs.vue'
 
 const linkClass =
   'flex items-center gap-3 rounded-lg px-3 py-2.5 text-sm font-medium text-neutral-400 transition-colors hover:bg-white/5 hover:text-neutral-100'
@@ -23,6 +24,13 @@ const activeLinkClass = 'bg-teal-400/10 text-teal-300'
       <RouterLink to="/settings" :class="linkClass" :active-class="activeLinkClass">
         <IconSettings class="h-4.5 w-4.5 shrink-0" />
         <span>Settings</span>
+      </RouterLink>
+    </nav>
+
+    <nav class="mt-auto flex flex-col gap-1">
+      <RouterLink to="/logs" :class="linkClass" :active-class="activeLinkClass">
+        <IconLogs class="h-4.5 w-4.5 shrink-0" />
+        <span>Logs</span>
       </RouterLink>
     </nav>
   </aside>

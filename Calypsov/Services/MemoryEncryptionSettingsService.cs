@@ -9,6 +9,7 @@ public sealed class MemoryEncryptionSettingsService : IEncryptionSettingsService
     private const string EnabledCacheKey = "encryption:enabled";
     private const string TargetsCacheKey = "encryption:targets";
     private const string ZipSettingsCacheKey = "encryption:zipSettings";
+    private const string IsRecordLogCacheKey = "encryption:isRecordLog";
 
     private readonly IMemoryCache _cache;
     private readonly object _lock = new();
@@ -49,6 +50,17 @@ public sealed class MemoryEncryptionSettingsService : IEncryptionSettingsService
             var settings = new ZipSettings(isUseTurboZip, isEncryptZippedFile);
             _cache.Set(ZipSettingsCacheKey, settings);
             return settings;
+        }
+    }
+
+    public bool GetIsRecordLogEnabled() => _cache.Get<bool?>(IsRecordLogCacheKey) ?? false;
+
+    public bool SetIsRecordLogEnabled(bool enabled)
+    {
+        lock (_lock)
+        {
+            _cache.Set(IsRecordLogCacheKey, enabled);
+            return enabled;
         }
     }
 

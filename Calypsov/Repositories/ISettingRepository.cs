@@ -21,4 +21,19 @@ public interface ISettingRepository
     /// named settings file. Creates the folder if it doesn't exist yet.
     /// </summary>
     string GetAppDataFolder();
+
+    /// <summary>Appends plain text to <paramref name="fileName"/> inside <paramref name="folderName"/>
+    /// (a subfolder of the app-data folder), creating the folder and file if they don't exist yet.</summary>
+    void AppendText(string folderName, string fileName, string content);
+
+    /// <summary>Reads the full plain-text contents of <paramref name="fileName"/> inside
+    /// <paramref name="folderName"/>, or null if it doesn't exist.</summary>
+    string? ReadText(string folderName, string fileName);
+
+    /// <summary>Lists every file directly inside <paramref name="folderName"/> (a subfolder of the
+    /// app-data folder, created if missing) along with its last-write time.</summary>
+    IReadOnlyList<FileEntry> ListFiles(string folderName);
+
+    /// <summary>Deletes <paramref name="fileName"/> inside <paramref name="folderName"/> if it exists.</summary>
+    void DeleteFile(string folderName, string fileName);
 }

@@ -6,17 +6,20 @@ import { useEncryptionStore } from '@/stores/encryption'
 import { useTargetsStore } from '@/stores/targets'
 import { useZipSettingsStore } from '@/stores/zipSettings'
 import { useBrowserProfilesStore } from '@/stores/browserProfiles'
+import { useLogSettingsStore } from '@/stores/logSettings'
 import { BrowserType } from '@/services/browsersApi'
 
 const encryption = useEncryptionStore()
 const targets = useTargetsStore()
 const zipSettings = useZipSettingsStore()
 const browserProfiles = useBrowserProfilesStore()
+const logSettings = useLogSettingsStore()
 
 onMounted(() => {
   encryption.fetchStatus()
   targets.fetchTargets()
   zipSettings.fetchZipSettings()
+  logSettings.fetchLogSetting()
   // Fetched here (not lazily in BrowserProfileCard alone) so the Home dashboard's
   // "configuration snapshot" has real selection data ready without requiring a Settings visit first.
   browserProfiles.fetchProfiles(BrowserType.Edge)
