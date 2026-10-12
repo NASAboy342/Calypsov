@@ -166,7 +166,7 @@ const heroGlowStyle = computed(() => {
               :action-label="progressActionLabel"
             />
             <p v-else class="text-sm text-neutral-400">
-              Encrypt:
+              Protection:
               <strong class="font-semibold" :class="encryption.enabled ? 'text-teal-300' : 'text-neutral-200'">
                 {{ encryption.enabled ? 'On' : 'Off' }}
               </strong>
