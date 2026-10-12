@@ -38,6 +38,10 @@ export interface ZipSettings {
   isEncryptZippedFile: boolean
 }
 
+export interface AppSettingEncryption {
+  isEncryptAppSetting: boolean
+}
+
 const BASE_URL = '/api/encryption'
 
 export function getStatus() {
@@ -76,5 +80,16 @@ export function updateZipSettings(settings: ZipSettings) {
   return requestJson<ZipSettings>(`${BASE_URL}/zip-settings`, {
     method: 'PUT',
     body: JSON.stringify(settings),
+  })
+}
+
+export function getAppSettingEncryption() {
+  return requestJson<AppSettingEncryption>(`${BASE_URL}/app-setting-encryption`)
+}
+
+export function updateAppSettingEncryption(isEncryptAppSetting: boolean) {
+  return requestJson<AppSettingEncryption>(`${BASE_URL}/app-setting-encryption`, {
+    method: 'PUT',
+    body: JSON.stringify({ isEncryptAppSetting }),
   })
 }

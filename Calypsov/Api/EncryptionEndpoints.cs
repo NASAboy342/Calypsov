@@ -36,5 +36,11 @@ public static class EncryptionEndpoints
 
         group.MapPut("/zip-settings", (UpdateZipSettingsRequest request) =>
             EndpointHelpers.Try(() => Results.Ok(settings.SetZipSettings(request.IsUseTurboZip, request.IsEncryptZippedFile))));
+
+        group.MapGet("/app-setting-encryption", () =>
+            EndpointHelpers.Try(() => Results.Ok(new AppSettingEncryptionResponse(settings.GetIsEncryptAppSettingEnabled()))));
+
+        group.MapPut("/app-setting-encryption", (UpdateAppSettingEncryptionRequest request) =>
+            EndpointHelpers.Try(() => Results.Ok(new AppSettingEncryptionResponse(settings.SetIsEncryptAppSettingEnabled(request.IsEncryptAppSetting)))));
     }
 }

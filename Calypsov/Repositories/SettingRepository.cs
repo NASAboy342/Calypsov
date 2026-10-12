@@ -1,3 +1,5 @@
+using System.Text;
+using Calypsov.Models;
 using Newtonsoft.Json;
 
 namespace Calypsov.Repositories;
@@ -20,8 +22,17 @@ public class SettingRepository : ISettingRepository
             try
             {
                 var filePath = GetSettingFilePath(fileName);
-                var json = File.ReadAllText(filePath);
-                return string.IsNullOrWhiteSpace(json) ? null : JsonConvert.DeserializeObject<T>(json);
+                var raw = File.ReadAllText(filePath);
+                if (string.IsNullOrWhiteSpace(raw))
+                {
+                    return null;
+                }
+
+                // AppSetting is the only file this repository ever encodes (see IsEncryptAppSetting
+                // on Save below) — other callers' files are never touched here, so their content is
+                // always read back as the plain JSON they were written as.
+                var json = typeof(T) == typeof(AppSetting) ? DecodeAppSettingIfNeeded(raw) : raw;
+                return JsonConvert.DeserializeObject<T>(json);
             }
             catch
             {
@@ -35,9 +46,36 @@ public class SettingRepository : ISettingRepository
         lock (_lockFile)
         {
             var filePath = GetSettingFilePath(fileName);
-            File.WriteAllText(filePath, JsonConvert.SerializeObject(data));
+            var json = JsonConvert.SerializeObject(data);
+
+            // Encoding happens here, at the repository, specifically so IEncryptionSettingsService
+            // (and anything else that reads/writes AppSetting) never has to know or care whether the
+            // file on disk is plain JSON or encoded — it only ever works with a plain AppSetting
+            // object. Only AppSetting is ever encoded, and only when its own IsEncryptAppSetting flag
+            // is on at the moment of this call.
+            var content = data is AppSetting { IsEncryptAppSetting: true } ? EncodeBase64(json) : json;
+            File.WriteAllText(filePath, content);
         }
     }
+
+    /// <summary>
+    /// Detects whether <paramref name="raw"/> is plain JSON or this repository's Base64 encoding of
+    /// it, and returns plain JSON either way. Detection — not the current IsEncryptAppSetting value —
+    /// decides this: the flag only controls what happens on the *next* write, so a file written while
+    /// the flag was on must still read back correctly after the flag is later turned off (and vice
+    /// versa), before anything is re-saved. A file that was never encoded (including the very first
+    /// read of a settings.json that predates this feature) is read as plain JSON, unchanged.
+    /// </summary>
+    private static string DecodeAppSettingIfNeeded(string raw) =>
+        LooksLikePlainJson(raw) ? raw : DecodeBase64(raw);
+
+    private static bool LooksLikePlainJson(string raw) => raw.TrimStart().StartsWith('{');
+
+    private static string DecodeBase64(string encoded) =>
+        Encoding.UTF8.GetString(Convert.FromBase64String(encoded));
+
+    private static string EncodeBase64(string json) =>
+        Convert.ToBase64String(Encoding.UTF8.GetBytes(json));
 
     public void AppendText(string folderName, string fileName, string content)
     {

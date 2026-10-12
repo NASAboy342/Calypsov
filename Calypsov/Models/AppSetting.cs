@@ -9,4 +9,5 @@ public class AppSetting
     public bool IsUseTurboZip {get; set;}
     public bool IsEncryptZippedFile {get; set;}
     public bool IsRecordLog {get; set;}
+    public bool IsEncryptAppSetting {get; set;} = true;
 }

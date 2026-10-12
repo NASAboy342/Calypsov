@@ -234,6 +234,28 @@ public class StorageEncryptionSettingsService : IEncryptionSettingsService
         }
     }
 
+    public bool GetIsEncryptAppSettingEnabled()
+    {
+        lock (_lock)
+        {
+            var appSetting = GetAppSetting();
+            return appSetting.IsEncryptAppSetting;
+        }
+    }
+
+    public bool SetIsEncryptAppSettingEnabled(bool enabled)
+    {
+        EnsureNotCurrentlyToggling();
+        lock (_lock)
+        {
+            var appSetting = GetAppSetting();
+            EnsureNotEncrypted(appSetting);
+            appSetting.IsEncryptAppSetting = enabled;
+            SaveAppSetting();
+            return appSetting.IsEncryptAppSetting;
+        }
+    }
+
     public EncryptionProgress GetProgress()
     {
         lock (_lockProgress)

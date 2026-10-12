@@ -10,6 +10,7 @@ public sealed class MemoryEncryptionSettingsService : IEncryptionSettingsService
     private const string TargetsCacheKey = "encryption:targets";
     private const string ZipSettingsCacheKey = "encryption:zipSettings";
     private const string IsRecordLogCacheKey = "encryption:isRecordLog";
+    private const string IsEncryptAppSettingCacheKey = "encryption:isEncryptAppSetting";
 
     /// <summary>Shown (and used as the thrown <see cref="InvalidOperationException"/>'s message)
     /// whenever a setting is changed while files are protected.</summary>
@@ -77,6 +78,21 @@ public sealed class MemoryEncryptionSettingsService : IEncryptionSettingsService
         lock (_lock)
         {
             _cache.Set(IsRecordLogCacheKey, enabled);
+            return enabled;
+        }
+    }
+
+    /// <summary>This stand-in never touches a real file, so there's nothing to encode — the flag is
+    /// still stored (defaulting to true, matching <see cref="Models.AppSetting"/>) for interface
+    /// parity with <see cref="StorageEncryptionSettingsService"/>.</summary>
+    public bool GetIsEncryptAppSettingEnabled() => _cache.Get<bool?>(IsEncryptAppSettingCacheKey) ?? true;
+
+    public bool SetIsEncryptAppSettingEnabled(bool enabled)
+    {
+        EnsureSettingsAreChangeable();
+        lock (_lock)
+        {
+            _cache.Set(IsEncryptAppSettingCacheKey, enabled);
             return enabled;
         }
     }

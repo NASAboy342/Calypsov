@@ -17,11 +17,13 @@ import ConfirmDialog from '@/components/ConfirmDialog.vue'
 import Checkbox from '@/components/Checkbox.vue'
 import { useZipSettingsStore } from '@/stores/zipSettings'
 import { useLogSettingsStore } from '@/stores/logSettings'
+import { useAppSettingEncryptionStore } from '@/stores/appSettingEncryption'
 import { fuzzyMatch } from '@/utils/fuzzyMatch'
 
 const targets = useTargetsStore()
 const zipSettings = useZipSettingsStore()
 const logSettings = useLogSettingsStore()
+const appSettingEncryption = useAppSettingEncryptionStore()
 const encryption = useEncryptionStore()
 
 const folderSearch = ref('')
@@ -522,9 +524,27 @@ async function handleBrowse() {
               @update:model-value="zipSettings.setEncryptZippedFile"
             />
           </div>
+
+          <div class="flex items-start justify-between gap-4 py-4 first:pt-0 last:pb-0">
+            <div>
+              <p class="text-sm font-semibold text-neutral-100">Encrypt App Settings</p>
+              <p class="mt-1 max-w-lg text-xs text-neutral-500">
+                Makes the list of protected folders and files unreadable to someone who opens this
+                app's settings file directly on your computer — not full encryption, but enough to
+                stop it being read at a glance. Recommended to leave on.
+              </p>
+            </div>
+            <ToggleSwitch
+              :model-value="appSettingEncryption.isEncryptAppSetting"
+              :disabled="appSettingEncryption.saving || isLocked"
+              aria-label="Toggle Encrypt App Settings"
+              @update:model-value="appSettingEncryption.setEncryptAppSetting"
+            />
+          </div>
         </div>
 
         <p v-if="zipSettings.error" class="mt-3 text-xs text-red-400">{{ zipSettings.error }}</p>
+        <p v-if="appSettingEncryption.error" class="mt-3 text-xs text-red-400">{{ appSettingEncryption.error }}</p>
       </SettingsSection>
 
       <SettingsSection

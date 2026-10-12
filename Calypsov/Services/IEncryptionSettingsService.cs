@@ -31,6 +31,21 @@ public interface IEncryptionSettingsService
     /// until protection is turned off.</summary>
     bool SetIsRecordLogEnabled(bool enabled);
 
+    /// <summary>
+    /// Whether AppSetting (settings.json) is Base64-encoded at rest. Encoding/decoding is handled
+    /// entirely by <see cref="Repositories.ISettingRepository"/> — this service only persists the
+    /// flag's value and never encodes/decodes anything itself. Defaults to true. Reading an existing
+    /// settings.json always works regardless of this flag's current value (the repository
+    /// auto-detects whether the file is encoded); the flag only controls what happens on the next
+    /// write.
+    /// </summary>
+    bool GetIsEncryptAppSettingEnabled();
+
+    /// <summary>Throws <see cref="InvalidOperationException"/> if files are currently protected
+    /// (already encrypted, or an encrypt/decrypt run is in progress) — settings can't be changed
+    /// until protection is turned off.</summary>
+    bool SetIsEncryptAppSettingEnabled(bool enabled);
+
     /// <summary>A snapshot of the current (or last) encrypt/decrypt run, safe to poll frequently
     /// while <see cref="ToggleEncryption"/> is in flight on another request.</summary>
     EncryptionProgress GetProgress();
