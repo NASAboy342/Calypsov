@@ -11,12 +11,27 @@ public sealed class MemoryEncryptionSettingsService : IEncryptionSettingsService
     private const string ZipSettingsCacheKey = "encryption:zipSettings";
     private const string IsRecordLogCacheKey = "encryption:isRecordLog";
 
+    /// <summary>Shown (and used as the thrown <see cref="InvalidOperationException"/>'s message)
+    /// whenever a setting is changed while files are protected.</summary>
+    private const string SettingsLockedMessage = "Setting cannot be change while files are protected. Turn off the protection first before change any setting.";
+
     private readonly IMemoryCache _cache;
     private readonly object _lock = new();
 
     public MemoryEncryptionSettingsService(IMemoryCache cache)
     {
         _cache = cache;
+    }
+
+    /// <summary>Throws <see cref="InvalidOperationException"/> if files are already encrypted. This
+    /// stand-in never has a real encrypt/decrypt run in progress (see <see cref="GetProgress"/>), so
+    /// unlike <see cref="StorageEncryptionSettingsService"/> there's no separate in-progress check.</summary>
+    private void EnsureSettingsAreChangeable()
+    {
+        if (IsEncryptionEnabled())
+        {
+            throw new InvalidOperationException(SettingsLockedMessage);
+        }
     }
 
     public bool IsEncryptionEnabled() => _cache.Get<bool?>(EnabledCacheKey) ?? false;
@@ -45,6 +60,7 @@ public sealed class MemoryEncryptionSettingsService : IEncryptionSettingsService
 
     public ZipSettings SetZipSettings(bool isUseTurboZip, bool isEncryptZippedFile)
     {
+        EnsureSettingsAreChangeable();
         lock (_lock)
         {
             var settings = new ZipSettings(isUseTurboZip, isEncryptZippedFile);
@@ -57,6 +73,7 @@ public sealed class MemoryEncryptionSettingsService : IEncryptionSettingsService
 
     public bool SetIsRecordLogEnabled(bool enabled)
     {
+        EnsureSettingsAreChangeable();
         lock (_lock)
         {
             _cache.Set(IsRecordLogCacheKey, enabled);
@@ -78,6 +95,7 @@ public sealed class MemoryEncryptionSettingsService : IEncryptionSettingsService
 
     public EncryptionTarget AddTarget(EnumTargetCategory category, string path)
     {
+        EnsureSettingsAreChangeable();
         var trimmedPath = path.Trim();
         if (trimmedPath.Length == 0)
         {
@@ -103,6 +121,7 @@ public sealed class MemoryEncryptionSettingsService : IEncryptionSettingsService
 
     public bool RemoveTarget(Guid id)
     {
+        EnsureSettingsAreChangeable();
         lock (_lock)
         {
             var targets = GetTargetsUnsafe();

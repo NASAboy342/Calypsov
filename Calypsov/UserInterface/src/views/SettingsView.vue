@@ -1,6 +1,7 @@
 <script setup lang="ts">
-import { ref } from 'vue'
+import { computed, ref } from 'vue'
 import { useTargetsStore, EnumTargetCategory } from '@/stores/targets'
+import { useEncryptionStore } from '@/stores/encryption'
 import { pickFiles, pickFolders } from '@/services/dialogApi'
 import { BrowserType } from '@/services/browsersApi'
 import IconFolder from '@/components/icons/IconFolder.vue'
@@ -8,15 +9,27 @@ import IconFile from '@/components/icons/IconFile.vue'
 import IconTrash from '@/components/icons/IconTrash.vue'
 import IconClipboard from '@/components/icons/IconClipboard.vue'
 import IconFolderOpen from '@/components/icons/IconFolderOpen.vue'
+import IconLock from '@/components/icons/IconLock.vue'
 import BrowserProfileCard from '@/components/BrowserProfileCard.vue'
 import SettingsSection from '@/components/SettingsSection.vue'
 import ToggleSwitch from '@/components/ToggleSwitch.vue'
 import { useZipSettingsStore } from '@/stores/zipSettings'
 import { useLogSettingsStore } from '@/stores/logSettings'
+import { fuzzyMatch } from '@/utils/fuzzyMatch'
 
 const targets = useTargetsStore()
 const zipSettings = useZipSettingsStore()
 const logSettings = useLogSettingsStore()
+const encryption = useEncryptionStore()
+
+const folderSearch = ref('')
+const fileSearch = ref('')
+const filteredFolders = computed(() => targets.folders.filter((t) => fuzzyMatch(folderSearch.value, t.path)))
+const filteredFiles = computed(() => targets.files.filter((t) => fuzzyMatch(fileSearch.value, t.path)))
+
+// Mirrors the backend: AppSetting-backed settings (targets, zip options, log recording) can't be
+// changed while files are protected — either already encrypted, or a toggle is still in progress.
+const isLocked = computed(() => encryption.enabled || encryption.toggling)
 
 const category = ref<EnumTargetCategory>(EnumTargetCategory.Folder)
 const path = ref('')
@@ -24,6 +37,7 @@ const error = ref('')
 const browsing = ref(false)
 
 async function handleAdd() {
+  if (isLocked.value) return
   const result = await targets.add(category.value, path.value)
   if (result) {
     error.value = result
@@ -51,6 +65,7 @@ async function handlePaste() {
  * being funneled through the single-path text input.
  */
 async function handleBrowse() {
+  if (isLocked.value) return
   browsing.value = true
   try {
     const result =
@@ -79,6 +94,36 @@ async function handleBrowse() {
       <p class="mt-1 text-sm text-neutral-400">Choose which folders and files should be encrypted.</p>
     </header>
 
+    <Transition
+      enter-active-class="transition duration-200 ease-out"
+      enter-from-class="opacity-0 -translate-y-1"
+      enter-to-class="opacity-100 translate-y-0"
+      leave-active-class="transition duration-150 ease-in"
+      leave-from-class="opacity-100"
+      leave-to-class="opacity-0"
+    >
+      <div
+        v-if="isLocked"
+        class="mb-5 flex items-start gap-3 rounded-xl border px-4 py-3.5"
+        :class="
+          encryption.toggling
+            ? 'border-amber-400/25 bg-amber-400/10 text-amber-200'
+            : 'border-teal-400/25 bg-teal-400/10 text-teal-200'
+        "
+      >
+        <IconLock class="h-5 w-5 shrink-0 translate-y-0.5" />
+        <div>
+          <p class="text-sm font-semibold">
+            {{ encryption.toggling ? 'Protection is being applied' : 'Settings are locked' }}
+          </p>
+          <p class="mt-0.5 text-xs opacity-90">
+            Setting cannot be change while files are protected. Turn off the protection first before
+            change any setting.
+          </p>
+        </div>
+      </div>
+    </Transition>
+
     <div class="flex flex-col gap-5">
       <SettingsSection
         title="Target Folders & Files"
@@ -95,7 +140,8 @@ async function handleBrowse() {
             <select
               id="category"
               v-model="category"
-              class="h-10.5 rounded-lg border border-white/10 bg-neutral-950 px-3 text-sm text-neutral-100 focus:border-teal-400 focus:ring-2 focus:ring-teal-400/40 focus:outline-none"
+              :disabled="isLocked"
+              class="h-10.5 rounded-lg border border-white/10 bg-neutral-950 px-3 text-sm text-neutral-100 focus:border-teal-400 focus:ring-2 focus:ring-teal-400/40 focus:outline-none disabled:opacity-50"
             >
               <option :value="EnumTargetCategory.Folder">Folder</option>
               <option :value="EnumTargetCategory.File">File</option>
@@ -111,19 +157,21 @@ async function handleBrowse() {
                 id="path"
                 v-model="path"
                 type="text"
+                :disabled="isLocked"
                 :placeholder="
                   category === EnumTargetCategory.Folder
                     ? '/Users/you/Documents/Projects'
                     : '/Users/you/Documents/report.pdf'
                 "
-                class="h-10.5 w-full rounded-lg border border-white/10 bg-neutral-950 px-3 pr-20 text-sm text-neutral-100 placeholder:text-neutral-600 focus:border-teal-400 focus:ring-2 focus:ring-teal-400/40 focus:outline-none"
+                class="h-10.5 w-full rounded-lg border border-white/10 bg-neutral-950 px-3 pr-20 text-sm text-neutral-100 placeholder:text-neutral-600 focus:border-teal-400 focus:ring-2 focus:ring-teal-400/40 focus:outline-none disabled:opacity-50"
               />
               <div class="absolute inset-y-0 right-1.5 flex items-center gap-1">
                 <button
                   type="button"
                   title="Paste from clipboard"
                   aria-label="Paste from clipboard"
-                  class="flex h-7 w-7 items-center justify-center rounded-md text-neutral-500 transition-colors hover:bg-white/10 hover:text-teal-300"
+                  :disabled="isLocked"
+                  class="flex h-7 w-7 items-center justify-center rounded-md text-neutral-500 transition-colors hover:bg-white/10 hover:text-teal-300 disabled:opacity-50"
                   @click="handlePaste"
                 >
                   <IconClipboard class="h-4 w-4" />
@@ -132,7 +180,7 @@ async function handleBrowse() {
                   type="button"
                   title="Browse… (pick multiple, added instantly)"
                   aria-label="Browse for one or more paths"
-                  :disabled="browsing"
+                  :disabled="browsing || isLocked"
                   class="flex h-7 w-7 items-center justify-center rounded-md text-neutral-500 transition-colors hover:bg-white/10 hover:text-teal-300 disabled:opacity-50"
                   @click="handleBrowse"
                 >
@@ -144,7 +192,8 @@ async function handleBrowse() {
 
           <button
             type="submit"
-            class="h-10.5 rounded-lg bg-teal-400 px-6 text-sm font-semibold text-neutral-950 transition-colors hover:bg-teal-300"
+            :disabled="isLocked"
+            class="h-10.5 rounded-lg bg-teal-400 px-6 text-sm font-semibold text-neutral-950 transition-colors hover:bg-teal-300 disabled:cursor-not-allowed disabled:opacity-50 disabled:hover:bg-teal-400"
           >
             Add
           </button>
@@ -160,8 +209,15 @@ async function handleBrowse() {
                 {{ targets.folders.length }}
               </span>
             </h3>
-            <TransitionGroup
+            <input
               v-if="targets.folders.length"
+              v-model="folderSearch"
+              type="text"
+              placeholder="Search folders…"
+              class="mb-3 h-9 w-full rounded-lg border border-white/10 bg-neutral-950 px-3 text-sm text-neutral-100 placeholder:text-neutral-600 focus:border-teal-400 focus:ring-2 focus:ring-teal-400/40 focus:outline-none"
+            />
+            <TransitionGroup
+              v-if="filteredFolders.length"
               tag="ul"
               class="flex max-h-96 flex-col gap-2 overflow-y-auto pr-1"
               enter-active-class="transition duration-200 ease-out"
@@ -173,7 +229,7 @@ async function handleBrowse() {
               move-class="transition-transform duration-200 ease-out"
             >
               <li
-                v-for="t in targets.folders"
+                v-for="t in filteredFolders"
                 :key="t.id"
                 class="flex items-center gap-3 rounded-lg bg-neutral-950 px-3 py-2.5"
               >
@@ -181,7 +237,8 @@ async function handleBrowse() {
                 <span class="flex-1 text-sm break-all text-neutral-200">{{ t.path }}</span>
                 <button
                   type="button"
-                  class="flex h-7 w-7 items-center justify-center rounded-lg text-neutral-500 hover:bg-red-400/10 hover:text-red-400"
+                  :disabled="isLocked"
+                  class="flex h-7 w-7 items-center justify-center rounded-lg text-neutral-500 hover:bg-red-400/10 hover:text-red-400 disabled:pointer-events-none disabled:opacity-40"
                   aria-label="Remove"
                   @click="targets.remove(t.id)"
                 >
@@ -189,6 +246,9 @@ async function handleBrowse() {
                 </button>
               </li>
             </TransitionGroup>
+            <p v-else-if="targets.folders.length" class="text-sm text-neutral-500">
+              No folders match "{{ folderSearch }}".
+            </p>
             <p v-else class="text-sm text-neutral-500">No folders added yet.</p>
           </section>
 
@@ -199,8 +259,15 @@ async function handleBrowse() {
                 {{ targets.files.length }}
               </span>
             </h3>
-            <TransitionGroup
+            <input
               v-if="targets.files.length"
+              v-model="fileSearch"
+              type="text"
+              placeholder="Search files…"
+              class="mb-3 h-9 w-full rounded-lg border border-white/10 bg-neutral-950 px-3 text-sm text-neutral-100 placeholder:text-neutral-600 focus:border-teal-400 focus:ring-2 focus:ring-teal-400/40 focus:outline-none"
+            />
+            <TransitionGroup
+              v-if="filteredFiles.length"
               tag="ul"
               class="flex max-h-96 flex-col gap-2 overflow-y-auto pr-1"
               enter-active-class="transition duration-200 ease-out"
@@ -212,7 +279,7 @@ async function handleBrowse() {
               move-class="transition-transform duration-200 ease-out"
             >
               <li
-                v-for="t in targets.files"
+                v-for="t in filteredFiles"
                 :key="t.id"
                 class="flex items-center gap-3 rounded-lg bg-neutral-950 px-3 py-2.5"
               >
@@ -220,7 +287,8 @@ async function handleBrowse() {
                 <span class="flex-1 text-sm break-all text-neutral-200">{{ t.path }}</span>
                 <button
                   type="button"
-                  class="flex h-7 w-7 items-center justify-center rounded-lg text-neutral-500 hover:bg-red-400/10 hover:text-red-400"
+                  :disabled="isLocked"
+                  class="flex h-7 w-7 items-center justify-center rounded-lg text-neutral-500 hover:bg-red-400/10 hover:text-red-400 disabled:pointer-events-none disabled:opacity-40"
                   aria-label="Remove"
                   @click="targets.remove(t.id)"
                 >
@@ -228,6 +296,9 @@ async function handleBrowse() {
                 </button>
               </li>
             </TransitionGroup>
+            <p v-else-if="targets.files.length" class="text-sm text-neutral-500">
+              No files match "{{ fileSearch }}".
+            </p>
             <p v-else class="text-sm text-neutral-500">No files added yet.</p>
           </section>
         </div>
@@ -249,7 +320,7 @@ async function handleBrowse() {
             </div>
             <ToggleSwitch
               :model-value="zipSettings.isUseTurboZip"
-              :disabled="zipSettings.saving"
+              :disabled="zipSettings.saving || isLocked"
               aria-label="Toggle Turbo Zip"
               @update:model-value="zipSettings.setTurboZip"
             />
@@ -265,7 +336,7 @@ async function handleBrowse() {
             </div>
             <ToggleSwitch
               :model-value="zipSettings.isEncryptZippedFile"
-              :disabled="zipSettings.saving"
+              :disabled="zipSettings.saving || isLocked"
               aria-label="Toggle Encrypt Zipped Files"
               @update:model-value="zipSettings.setEncryptZippedFile"
             />
@@ -301,7 +372,7 @@ async function handleBrowse() {
           </div>
           <ToggleSwitch
             :model-value="logSettings.isRecordLog"
-            :disabled="logSettings.saving"
+            :disabled="logSettings.saving || isLocked"
             aria-label="Toggle log recording"
             @update:model-value="logSettings.setRecordLog"
           />

@@ -13,6 +13,10 @@ public interface IEncryptionSettingsService
     bool ToggleEncryption();
 
     ZipSettings GetZipSettings();
+
+    /// <summary>Throws <see cref="InvalidOperationException"/> if files are currently protected
+    /// (already encrypted, or an encrypt/decrypt run is in progress) — settings can't be changed
+    /// until protection is turned off.</summary>
     ZipSettings SetZipSettings(bool isUseTurboZip, bool isEncryptZippedFile);
 
     /// <summary>
@@ -21,6 +25,10 @@ public interface IEncryptionSettingsService
     /// settings file, so there's exactly one in-memory cache of AppSetting to stay consistent.
     /// </summary>
     bool GetIsRecordLogEnabled();
+
+    /// <summary>Throws <see cref="InvalidOperationException"/> if files are currently protected
+    /// (already encrypted, or an encrypt/decrypt run is in progress) — settings can't be changed
+    /// until protection is turned off.</summary>
     bool SetIsRecordLogEnabled(bool enabled);
 
     /// <summary>A snapshot of the current (or last) encrypt/decrypt run, safe to poll frequently
@@ -30,8 +38,13 @@ public interface IEncryptionSettingsService
     IReadOnlyList<EncryptionTarget> GetTargets();
 
     /// <summary>Throws <see cref="ArgumentException"/> for an invalid path, or
-    /// <see cref="InvalidOperationException"/> if the path is already configured.</summary>
+    /// <see cref="InvalidOperationException"/> if the path is already configured, or if files are
+    /// currently protected (already encrypted, or an encrypt/decrypt run is in progress) —
+    /// settings can't be changed until protection is turned off.</summary>
     EncryptionTarget AddTarget(EnumTargetCategory category, string path);
 
+    /// <summary>Throws <see cref="InvalidOperationException"/> if files are currently protected
+    /// (already encrypted, or an encrypt/decrypt run is in progress) — settings can't be changed
+    /// until protection is turned off.</summary>
     bool RemoveTarget(Guid id);
 }

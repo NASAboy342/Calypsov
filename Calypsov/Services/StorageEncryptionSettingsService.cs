@@ -16,6 +16,10 @@ public class StorageEncryptionSettingsService : IEncryptionSettingsService
     /// splitting the work across threads isn't worth the overhead.</summary>
     private const int TurboZipFolderThreshold = 20;
 
+    /// <summary>Shown (and used as the thrown <see cref="InvalidOperationException"/>'s message)
+    /// whenever an AppSetting-backed setting is changed while files are protected.</summary>
+    private const string SettingsLockedMessage = "Setting cannot be change while files are protected. Turn off the protection first before change any setting.";
+
     private readonly ISettingRepository _settingRepository;
     private AppSetting? _appSetting;
     private readonly object _lock = new();
@@ -41,12 +45,42 @@ public class StorageEncryptionSettingsService : IEncryptionSettingsService
         _browserProfileService = browserProfileService;
     }
 
+    /// <summary>
+    /// Throws <see cref="InvalidOperationException"/> if an encrypt/decrypt run is currently in
+    /// progress. Deliberately checked *before* acquiring <see cref="_lock"/> in each setting-mutating
+    /// method below, rather than inside it — <see cref="ToggleEncryption"/> holds that exact lock for
+    /// its *entire* run, so checking only after acquiring it would make these calls silently block
+    /// until the run finishes (then succeed or fail based on the post-run state) instead of failing
+    /// fast with a clear "settings are locked" error.
+    /// </summary>
+    private void EnsureNotCurrentlyToggling()
+    {
+        if (GetProgress().IsRunning)
+        {
+            throw new InvalidOperationException(SettingsLockedMessage);
+        }
+    }
+
+    /// <summary>Throws <see cref="InvalidOperationException"/> if files are already encrypted. Call
+    /// from inside a setting-mutating method, under <see cref="_lock"/>, alongside
+    /// <see cref="EnsureNotCurrentlyToggling"/> — together they cover "protected" meaning either
+    /// already encrypted, or an encrypt/decrypt run still in progress.</summary>
+    private static void EnsureNotEncrypted(AppSetting appSetting)
+    {
+        if (appSetting.IsEncrypted)
+        {
+            throw new InvalidOperationException(SettingsLockedMessage);
+        }
+    }
+
     public EncryptionTarget AddTarget(EnumTargetCategory category, string path)
     {
+        EnsureNotCurrentlyToggling();
         var newTargetToAdd = new EncryptionTarget(Guid.NewGuid(), category, path);
         lock (_lock)
         {
             var appSetting = GetAppSetting();
+            EnsureNotEncrypted(appSetting);
             CheckIfTargetAlreadyAddBefore(category, path, appSetting);
             CheckIfTargetIsASubTargetFromExistingTarget(category, path, appSetting);
             appSetting.EncryptionTargets.Add(newTargetToAdd);
@@ -128,9 +162,11 @@ public class StorageEncryptionSettingsService : IEncryptionSettingsService
 
     public bool RemoveTarget(Guid id)
     {
+        EnsureNotCurrentlyToggling();
         lock (_lock)
         {
             var appSetting = GetAppSetting();
+            EnsureNotEncrypted(appSetting);
             appSetting.EncryptionTargets.RemoveAll(t => t.Id.Equals(id));
             SaveAppSetting();
         }
@@ -164,9 +200,11 @@ public class StorageEncryptionSettingsService : IEncryptionSettingsService
 
     public ZipSettings SetZipSettings(bool isUseTurboZip, bool isEncryptZippedFile)
     {
+        EnsureNotCurrentlyToggling();
         lock (_lock)
         {
             var appSetting = GetAppSetting();
+            EnsureNotEncrypted(appSetting);
             appSetting.IsUseTurboZip = isUseTurboZip;
             appSetting.IsEncryptZippedFile = isEncryptZippedFile;
             SaveAppSetting();
@@ -185,9 +223,11 @@ public class StorageEncryptionSettingsService : IEncryptionSettingsService
 
     public bool SetIsRecordLogEnabled(bool enabled)
     {
+        EnsureNotCurrentlyToggling();
         lock (_lock)
         {
             var appSetting = GetAppSetting();
+            EnsureNotEncrypted(appSetting);
             appSetting.IsRecordLog = enabled;
             SaveAppSetting();
             return appSetting.IsRecordLog;
