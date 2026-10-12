@@ -1,9 +1,19 @@
 <script setup lang="ts">
 import { computed, onMounted, ref } from 'vue'
 import { useLogsStore } from '@/stores/logs'
-import { fuzzyMatch } from '@/utils/fuzzyMatch'
+import { fuzzyMatchIndices } from '@/utils/fuzzyMatch'
 import IconLogs from '@/components/icons/IconLogs.vue'
 import IconClipboard from '@/components/icons/IconClipboard.vue'
+
+interface LineSegment {
+  text: string
+  highlighted: boolean
+}
+
+interface DisplayLine {
+  text: string
+  segments: LineSegment[]
+}
 
 const logs = useLogsStore()
 const search = ref('')
@@ -14,7 +24,43 @@ onMounted(() => {
 })
 
 const lines = computed(() => (logs.content.length ? logs.content.split('\n') : []))
-const filteredLines = computed(() => lines.value.filter((line) => fuzzyMatch(search.value, line)))
+
+/**
+ * Filters to matching lines and, for each, splits it into highlighted/plain segments in one pass
+ * (rather than filtering with fuzzyMatch and then separately re-running the match per line to find
+ * what to highlight). A fuzzy match isn't one contiguous substring, so consecutive matched
+ * character indices are merged into a single highlighted run instead of wrapping every character
+ * in its own span.
+ */
+const displayLines = computed<DisplayLine[]>(() =>
+  lines.value
+    .map((text) => ({ text, indices: fuzzyMatchIndices(search.value, text) }))
+    .filter((line): line is { text: string; indices: number[] } => line.indices !== null)
+    .map(({ text, indices }) => ({ text, segments: toSegments(text, indices) })),
+)
+
+function toSegments(line: string, matchedIndices: number[]): LineSegment[] {
+  if (matchedIndices.length === 0) return [{ text: line, highlighted: false }]
+
+  const segments: LineSegment[] = []
+  let cursor = 0
+
+  for (let i = 0; i < matchedIndices.length; i++) {
+    const start = matchedIndices[i]
+    let end = start
+    while (i + 1 < matchedIndices.length && matchedIndices[i + 1] === end + 1) {
+      end = matchedIndices[++i]
+    }
+
+    if (start > cursor) segments.push({ text: line.slice(cursor, start), highlighted: false })
+    segments.push({ text: line.slice(start, end + 1), highlighted: true })
+    cursor = end + 1
+  }
+
+  if (cursor < line.length) segments.push({ text: line.slice(cursor), highlighted: false })
+
+  return segments
+}
 
 function formatModified(iso: string): string {
   return new Date(iso).toLocaleString(undefined, {
@@ -24,7 +70,7 @@ function formatModified(iso: string): string {
 }
 
 async function handleCopy() {
-  const text = filteredLines.value.join('\n')
+  const text = displayLines.value.map((line) => line.text).join('\n')
   try {
     await navigator.clipboard.writeText(text)
     copied.value = true
@@ -89,10 +135,10 @@ async function handleCopy() {
               placeholder="Fuzzy search within this file…"
               class="h-9 min-w-0 flex-1 rounded-lg border border-white/10 bg-neutral-950 px-3 text-sm text-neutral-100 placeholder:text-neutral-600 focus:border-teal-400 focus:ring-2 focus:ring-teal-400/40 focus:outline-none"
             />
-            <span class="text-xs text-neutral-500">{{ filteredLines.length }} / {{ lines.length }} lines</span>
+            <span class="text-xs text-neutral-500">{{ displayLines.length }} / {{ lines.length }} lines</span>
             <button
               type="button"
-              :disabled="logs.loadingContent || filteredLines.length === 0"
+              :disabled="logs.loadingContent || displayLines.length === 0"
               class="flex h-9 items-center gap-2 rounded-lg border border-white/10 px-3 text-sm text-neutral-300 transition-colors hover:bg-white/5 disabled:cursor-not-allowed disabled:opacity-50"
               @click="handleCopy"
             >
@@ -104,14 +150,26 @@ async function handleCopy() {
           <p v-if="logs.loadingContent" class="text-sm text-neutral-500">Loading…</p>
           <p v-else-if="logs.contentError" class="text-sm text-red-400">{{ logs.contentError }}</p>
           <p v-else-if="lines.length === 0" class="text-sm text-neutral-500">This log file is empty.</p>
-          <p v-else-if="filteredLines.length === 0" class="text-sm text-neutral-500">
+          <p v-else-if="displayLines.length === 0" class="text-sm text-neutral-500">
             No lines match "{{ search }}".
           </p>
-          <pre
-            v-else
-            class="max-h-[32rem] overflow-auto rounded-lg bg-neutral-950 p-4 font-mono text-xs leading-relaxed whitespace-pre-wrap text-neutral-300"
-            >{{ filteredLines.join('\n') }}</pre
-          >
+          <div v-else class="max-h-[32rem] overflow-auto rounded-lg bg-neutral-950 py-2 font-mono text-xs leading-relaxed">
+            <div
+              v-for="(line, index) in displayLines"
+              :key="index"
+              class="px-4 py-0.5 whitespace-pre-wrap"
+              :class="index % 2 === 0 ? 'bg-transparent' : 'bg-white/[0.03]'"
+            >
+              <template v-for="(segment, segIndex) in line.segments" :key="segIndex">
+                <mark
+                  v-if="segment.highlighted"
+                  class="rounded-sm bg-teal-400/25 text-teal-200"
+                  >{{ segment.text }}</mark
+                >
+                <span v-else class="text-neutral-300">{{ segment.text }}</span>
+              </template>
+            </div>
+          </div>
         </template>
       </section>
     </div>
