@@ -46,5 +46,21 @@ export const useTargetsStore = defineStore('targets', () => {
     items.value = items.value.filter((t) => t.id !== id)
   }
 
-  return { items, folders, files, count, loading, fetchTargets, add, remove }
+  /**
+   * Removes several targets, attempting each independently so one failure (e.g. settings are
+   * locked mid-batch) doesn't stop the rest from being removed. Returns the ids that failed.
+   */
+  async function removeMany(ids: string[]): Promise<string[]> {
+    const failedIds: string[] = []
+    for (const id of ids) {
+      try {
+        await remove(id)
+      } catch {
+        failedIds.push(id)
+      }
+    }
+    return failedIds
+  }
+
+  return { items, folders, files, count, loading, fetchTargets, add, remove, removeMany }
 })

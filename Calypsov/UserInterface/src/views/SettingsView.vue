@@ -13,6 +13,7 @@ import IconLock from '@/components/icons/IconLock.vue'
 import BrowserProfileCard from '@/components/BrowserProfileCard.vue'
 import SettingsSection from '@/components/SettingsSection.vue'
 import ToggleSwitch from '@/components/ToggleSwitch.vue'
+import ConfirmDialog from '@/components/ConfirmDialog.vue'
 import { useZipSettingsStore } from '@/stores/zipSettings'
 import { useLogSettingsStore } from '@/stores/logSettings'
 import { fuzzyMatch } from '@/utils/fuzzyMatch'
@@ -26,6 +27,111 @@ const folderSearch = ref('')
 const fileSearch = ref('')
 const filteredFolders = computed(() => targets.folders.filter((t) => fuzzyMatch(folderSearch.value, t.path)))
 const filteredFiles = computed(() => targets.files.filter((t) => fuzzyMatch(fileSearch.value, t.path)))
+
+// Multi-select for bulk delete — folders and files each get their own independent selection.
+const selectedFolderIds = ref<Set<string>>(new Set())
+const selectedFileIds = ref<Set<string>>(new Set())
+const bulkDeleteError = ref('')
+
+/** "Select all" only ever applies to the currently search-filtered items, not the whole list. */
+const selectedVisibleFolderCount = computed(
+  () => filteredFolders.value.filter((t) => selectedFolderIds.value.has(t.id)).length,
+)
+const allFilteredFoldersSelected = computed(
+  () => filteredFolders.value.length > 0 && selectedVisibleFolderCount.value === filteredFolders.value.length,
+)
+const someFilteredFoldersSelected = computed(
+  () => selectedVisibleFolderCount.value > 0 && !allFilteredFoldersSelected.value,
+)
+
+const selectedVisibleFileCount = computed(
+  () => filteredFiles.value.filter((t) => selectedFileIds.value.has(t.id)).length,
+)
+const allFilteredFilesSelected = computed(
+  () => filteredFiles.value.length > 0 && selectedVisibleFileCount.value === filteredFiles.value.length,
+)
+const someFilteredFilesSelected = computed(
+  () => selectedVisibleFileCount.value > 0 && !allFilteredFilesSelected.value,
+)
+
+function toggleFolderSelection(id: string) {
+  if (selectedFolderIds.value.has(id)) selectedFolderIds.value.delete(id)
+  else selectedFolderIds.value.add(id)
+}
+
+function toggleSelectAllFolders() {
+  if (allFilteredFoldersSelected.value) {
+    for (const t of filteredFolders.value) selectedFolderIds.value.delete(t.id)
+  } else {
+    for (const t of filteredFolders.value) selectedFolderIds.value.add(t.id)
+  }
+}
+
+function toggleFileSelection(id: string) {
+  if (selectedFileIds.value.has(id)) selectedFileIds.value.delete(id)
+  else selectedFileIds.value.add(id)
+}
+
+function toggleSelectAllFiles() {
+  if (allFilteredFilesSelected.value) {
+    for (const t of filteredFiles.value) selectedFileIds.value.delete(t.id)
+  } else {
+    for (const t of filteredFiles.value) selectedFileIds.value.add(t.id)
+  }
+}
+
+/** Single-item removal (the existing per-row trash button) also drops the id from whichever
+ * selection set it might be in, so a stale checkmark can't linger after the row is gone. */
+async function removeSingleTarget(id: string) {
+  await targets.remove(id)
+  selectedFolderIds.value.delete(id)
+  selectedFileIds.value.delete(id)
+}
+
+type PendingDelete = { noun: string; ids: string[]; onDone: () => void }
+const pendingDelete = ref<PendingDelete | null>(null)
+
+const pendingDeleteMessage = computed(() => {
+  if (!pendingDelete.value) return ''
+  const { noun, ids } = pendingDelete.value
+  const label = ids.length === 1 ? noun : `${noun}s`
+  return `This will remove ${ids.length} ${label} from your encryption targets. This can't be undone.`
+})
+
+function requestDeleteSelectedFolders() {
+  if (isLocked.value || selectedFolderIds.value.size === 0) return
+  pendingDelete.value = {
+    noun: 'folder',
+    ids: Array.from(selectedFolderIds.value),
+    onDone: () => selectedFolderIds.value.clear(),
+  }
+}
+
+function requestDeleteSelectedFiles() {
+  if (isLocked.value || selectedFileIds.value.size === 0) return
+  pendingDelete.value = {
+    noun: 'file',
+    ids: Array.from(selectedFileIds.value),
+    onDone: () => selectedFileIds.value.clear(),
+  }
+}
+
+async function confirmDeleteSelected() {
+  if (!pendingDelete.value) return
+  const { ids, onDone } = pendingDelete.value
+  pendingDelete.value = null
+  bulkDeleteError.value = ''
+
+  const failedIds = await targets.removeMany(ids)
+  onDone()
+  if (failedIds.length > 0) {
+    bulkDeleteError.value = `Could not remove ${failedIds.length} item${failedIds.length === 1 ? '' : 's'}. Try again.`
+  }
+}
+
+function cancelDeleteSelected() {
+  pendingDelete.value = null
+}
 
 // Mirrors the backend: AppSetting-backed settings (targets, zip options, log recording) can't be
 // changed while files are protected — either already encrypted, or a toggle is still in progress.
@@ -216,6 +322,38 @@ async function handleBrowse() {
               placeholder="Search folders…"
               class="mb-3 h-9 w-full rounded-lg border border-white/10 bg-neutral-950 px-3 text-sm text-neutral-100 placeholder:text-neutral-600 focus:border-teal-400 focus:ring-2 focus:ring-teal-400/40 focus:outline-none"
             />
+            <div v-if="filteredFolders.length" class="mb-2.5 flex items-center justify-between gap-2">
+              <label class="flex items-center gap-2 text-xs font-semibold text-neutral-400">
+                <input
+                  type="checkbox"
+                  :checked="allFilteredFoldersSelected"
+                  :indeterminate="someFilteredFoldersSelected"
+                  :disabled="isLocked"
+                  class="h-4 w-4 rounded border-white/20 bg-neutral-950 text-teal-400 focus:ring-2 focus:ring-teal-400/40 disabled:opacity-50"
+                  @change="toggleSelectAllFolders"
+                />
+                Select all
+              </label>
+              <Transition
+                enter-active-class="transition duration-150 ease-out"
+                enter-from-class="opacity-0 scale-95"
+                enter-to-class="opacity-100 scale-100"
+                leave-active-class="transition duration-100 ease-in"
+                leave-from-class="opacity-100 scale-100"
+                leave-to-class="opacity-0 scale-95"
+              >
+                <button
+                  v-if="selectedFolderIds.size > 0"
+                  type="button"
+                  :disabled="isLocked"
+                  class="flex items-center gap-1.5 rounded-md px-2 py-1 text-xs font-semibold text-red-400 transition-colors hover:bg-red-400/10 disabled:pointer-events-none disabled:opacity-40"
+                  @click="requestDeleteSelectedFolders"
+                >
+                  <IconTrash class="h-3.5 w-3.5" />
+                  Delete ({{ selectedFolderIds.size }})
+                </button>
+              </Transition>
+            </div>
             <TransitionGroup
               v-if="filteredFolders.length"
               tag="ul"
@@ -233,6 +371,14 @@ async function handleBrowse() {
                 :key="t.id"
                 class="flex items-center gap-3 rounded-lg bg-neutral-950 px-3 py-2.5"
               >
+                <input
+                  type="checkbox"
+                  :checked="selectedFolderIds.has(t.id)"
+                  :disabled="isLocked"
+                  class="h-4 w-4 shrink-0 rounded border-white/20 bg-neutral-950 text-teal-400 focus:ring-2 focus:ring-teal-400/40 disabled:opacity-50"
+                  aria-label="Select folder"
+                  @change="toggleFolderSelection(t.id)"
+                />
                 <IconFolder class="h-4.5 w-4.5 shrink-0 text-neutral-500" />
                 <span class="flex-1 text-sm break-all text-neutral-200">{{ t.path }}</span>
                 <button
@@ -240,7 +386,7 @@ async function handleBrowse() {
                   :disabled="isLocked"
                   class="flex h-7 w-7 items-center justify-center rounded-lg text-neutral-500 hover:bg-red-400/10 hover:text-red-400 disabled:pointer-events-none disabled:opacity-40"
                   aria-label="Remove"
-                  @click="targets.remove(t.id)"
+                  @click="removeSingleTarget(t.id)"
                 >
                   <IconTrash class="h-4 w-4" />
                 </button>
@@ -266,6 +412,38 @@ async function handleBrowse() {
               placeholder="Search files…"
               class="mb-3 h-9 w-full rounded-lg border border-white/10 bg-neutral-950 px-3 text-sm text-neutral-100 placeholder:text-neutral-600 focus:border-teal-400 focus:ring-2 focus:ring-teal-400/40 focus:outline-none"
             />
+            <div v-if="filteredFiles.length" class="mb-2.5 flex items-center justify-between gap-2">
+              <label class="flex items-center gap-2 text-xs font-semibold text-neutral-400">
+                <input
+                  type="checkbox"
+                  :checked="allFilteredFilesSelected"
+                  :indeterminate="someFilteredFilesSelected"
+                  :disabled="isLocked"
+                  class="h-4 w-4 rounded border-white/20 bg-neutral-950 text-teal-400 focus:ring-2 focus:ring-teal-400/40 disabled:opacity-50"
+                  @change="toggleSelectAllFiles"
+                />
+                Select all
+              </label>
+              <Transition
+                enter-active-class="transition duration-150 ease-out"
+                enter-from-class="opacity-0 scale-95"
+                enter-to-class="opacity-100 scale-100"
+                leave-active-class="transition duration-100 ease-in"
+                leave-from-class="opacity-100 scale-100"
+                leave-to-class="opacity-0 scale-95"
+              >
+                <button
+                  v-if="selectedFileIds.size > 0"
+                  type="button"
+                  :disabled="isLocked"
+                  class="flex items-center gap-1.5 rounded-md px-2 py-1 text-xs font-semibold text-red-400 transition-colors hover:bg-red-400/10 disabled:pointer-events-none disabled:opacity-40"
+                  @click="requestDeleteSelectedFiles"
+                >
+                  <IconTrash class="h-3.5 w-3.5" />
+                  Delete ({{ selectedFileIds.size }})
+                </button>
+              </Transition>
+            </div>
             <TransitionGroup
               v-if="filteredFiles.length"
               tag="ul"
@@ -283,6 +461,14 @@ async function handleBrowse() {
                 :key="t.id"
                 class="flex items-center gap-3 rounded-lg bg-neutral-950 px-3 py-2.5"
               >
+                <input
+                  type="checkbox"
+                  :checked="selectedFileIds.has(t.id)"
+                  :disabled="isLocked"
+                  class="h-4 w-4 shrink-0 rounded border-white/20 bg-neutral-950 text-teal-400 focus:ring-2 focus:ring-teal-400/40 disabled:opacity-50"
+                  aria-label="Select file"
+                  @change="toggleFileSelection(t.id)"
+                />
                 <IconFile class="h-4.5 w-4.5 shrink-0 text-neutral-500" />
                 <span class="flex-1 text-sm break-all text-neutral-200">{{ t.path }}</span>
                 <button
@@ -290,7 +476,7 @@ async function handleBrowse() {
                   :disabled="isLocked"
                   class="flex h-7 w-7 items-center justify-center rounded-lg text-neutral-500 hover:bg-red-400/10 hover:text-red-400 disabled:pointer-events-none disabled:opacity-40"
                   aria-label="Remove"
-                  @click="targets.remove(t.id)"
+                  @click="removeSingleTarget(t.id)"
                 >
                   <IconTrash class="h-4 w-4" />
                 </button>
@@ -302,6 +488,8 @@ async function handleBrowse() {
             <p v-else class="text-sm text-neutral-500">No files added yet.</p>
           </section>
         </div>
+
+        <p v-if="bulkDeleteError" class="mt-3 text-sm text-red-400">{{ bulkDeleteError }}</p>
       </SettingsSection>
 
       <SettingsSection
@@ -381,5 +569,15 @@ async function handleBrowse() {
         <p v-if="logSettings.error" class="mt-3 text-xs text-red-400">{{ logSettings.error }}</p>
       </SettingsSection>
     </div>
+
+    <ConfirmDialog
+      :open="pendingDelete !== null"
+      title="Remove selected?"
+      :message="pendingDeleteMessage"
+      confirm-label="Delete"
+      danger
+      @confirm="confirmDeleteSelected"
+      @cancel="cancelDeleteSelected"
+    />
   </div>
 </template>
