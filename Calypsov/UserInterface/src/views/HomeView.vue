@@ -90,7 +90,7 @@ const heroGlowStyle = computed(() => {
           </p>
 
           <h1 class="text-4xl font-extrabold tracking-tight text-neutral-50 sm:text-5xl">
-            Encryption is
+            Protection is
             <span
               class="bg-linear-to-r bg-clip-text text-transparent"
               :class="encryption.enabled ? 'from-teal-300 to-indigo-400' : 'from-neutral-500 to-neutral-600'"

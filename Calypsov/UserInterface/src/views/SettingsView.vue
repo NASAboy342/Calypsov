@@ -14,6 +14,7 @@ import BrowserProfileCard from '@/components/BrowserProfileCard.vue'
 import SettingsSection from '@/components/SettingsSection.vue'
 import ToggleSwitch from '@/components/ToggleSwitch.vue'
 import ConfirmDialog from '@/components/ConfirmDialog.vue'
+import Checkbox from '@/components/Checkbox.vue'
 import { useZipSettingsStore } from '@/stores/zipSettings'
 import { useLogSettingsStore } from '@/stores/logSettings'
 import { fuzzyMatch } from '@/utils/fuzzyMatch'
@@ -324,13 +325,11 @@ async function handleBrowse() {
             />
             <div v-if="filteredFolders.length" class="mb-2.5 flex items-center justify-between gap-2">
               <label class="flex items-center gap-2 text-xs font-semibold text-neutral-400">
-                <input
-                  type="checkbox"
-                  :checked="allFilteredFoldersSelected"
+                <Checkbox
+                  :model-value="allFilteredFoldersSelected"
                   :indeterminate="someFilteredFoldersSelected"
                   :disabled="isLocked"
-                  class="h-4 w-4 rounded border-white/20 bg-neutral-950 text-teal-400 focus:ring-2 focus:ring-teal-400/40 disabled:opacity-50"
-                  @change="toggleSelectAllFolders"
+                  @update:model-value="toggleSelectAllFolders"
                 />
                 Select all
               </label>
@@ -371,13 +370,11 @@ async function handleBrowse() {
                 :key="t.id"
                 class="flex items-center gap-3 rounded-lg bg-neutral-950 px-3 py-2.5"
               >
-                <input
-                  type="checkbox"
-                  :checked="selectedFolderIds.has(t.id)"
+                <Checkbox
+                  :model-value="selectedFolderIds.has(t.id)"
                   :disabled="isLocked"
-                  class="h-4 w-4 shrink-0 rounded border-white/20 bg-neutral-950 text-teal-400 focus:ring-2 focus:ring-teal-400/40 disabled:opacity-50"
                   aria-label="Select folder"
-                  @change="toggleFolderSelection(t.id)"
+                  @update:model-value="toggleFolderSelection(t.id)"
                 />
                 <IconFolder class="h-4.5 w-4.5 shrink-0 text-neutral-500" />
                 <span class="flex-1 text-sm break-all text-neutral-200">{{ t.path }}</span>
@@ -414,13 +411,11 @@ async function handleBrowse() {
             />
             <div v-if="filteredFiles.length" class="mb-2.5 flex items-center justify-between gap-2">
               <label class="flex items-center gap-2 text-xs font-semibold text-neutral-400">
-                <input
-                  type="checkbox"
-                  :checked="allFilteredFilesSelected"
+                <Checkbox
+                  :model-value="allFilteredFilesSelected"
                   :indeterminate="someFilteredFilesSelected"
                   :disabled="isLocked"
-                  class="h-4 w-4 rounded border-white/20 bg-neutral-950 text-teal-400 focus:ring-2 focus:ring-teal-400/40 disabled:opacity-50"
-                  @change="toggleSelectAllFiles"
+                  @update:model-value="toggleSelectAllFiles"
                 />
                 Select all
               </label>
@@ -461,13 +456,11 @@ async function handleBrowse() {
                 :key="t.id"
                 class="flex items-center gap-3 rounded-lg bg-neutral-950 px-3 py-2.5"
               >
-                <input
-                  type="checkbox"
-                  :checked="selectedFileIds.has(t.id)"
+                <Checkbox
+                  :model-value="selectedFileIds.has(t.id)"
                   :disabled="isLocked"
-                  class="h-4 w-4 shrink-0 rounded border-white/20 bg-neutral-950 text-teal-400 focus:ring-2 focus:ring-teal-400/40 disabled:opacity-50"
                   aria-label="Select file"
-                  @change="toggleFileSelection(t.id)"
+                  @update:model-value="toggleFileSelection(t.id)"
                 />
                 <IconFile class="h-4.5 w-4.5 shrink-0 text-neutral-500" />
                 <span class="flex-1 text-sm break-all text-neutral-200">{{ t.path }}</span>
