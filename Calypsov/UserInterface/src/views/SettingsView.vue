@@ -568,7 +568,7 @@ async function handleBrowse() {
             <p class="text-sm font-semibold text-neutral-100">Record Logs</p>
             <p class="mt-1 max-w-lg text-xs text-neutral-500">
               When on, API activity and errors are queued and written to a dated file under Logs — kept
-              for the last 4 days. When off, nothing is recorded and no background work runs.
+              for the last 4 days. When off, nothing is recorded and no background work runs. Recommended to leave off. Unless you would like to report bug.
             </p>
           </div>
           <ToggleSwitch
