@@ -4,6 +4,8 @@ import { useLogsStore } from '@/stores/logs'
 import { fuzzyMatchIndices } from '@/utils/fuzzyMatch'
 import IconLogs from '@/components/icons/IconLogs.vue'
 import IconClipboard from '@/components/icons/IconClipboard.vue'
+import IconTrash from '@/components/icons/IconTrash.vue'
+import ConfirmDialog from '@/components/ConfirmDialog.vue'
 
 interface LineSegment {
   text: string
@@ -18,6 +20,9 @@ interface DisplayLine {
 const logs = useLogsStore()
 const search = ref('')
 const copied = ref(false)
+const showClearConfirm = ref(false)
+const clearing = ref(false)
+const clearError = ref('')
 
 onMounted(() => {
   logs.fetchFiles()
@@ -79,6 +84,36 @@ async function handleCopy() {
     // Clipboard access denied/unavailable — nothing more we can do here.
   }
 }
+
+function requestClearFile() {
+  if (!logs.selectedFileName) return
+  clearError.value = ''
+  showClearConfirm.value = true
+}
+
+async function confirmClearFile() {
+  showClearConfirm.value = false
+  if (!logs.selectedFileName) return
+
+  clearing.value = true
+  clearError.value = ''
+  try {
+    await logs.clearFile(logs.selectedFileName)
+  } catch (err) {
+    clearError.value = err instanceof Error ? err.message : 'Could not clear this log file.'
+  } finally {
+    clearing.value = false
+  }
+}
+
+function cancelClearFile() {
+  showClearConfirm.value = false
+}
+
+const clearConfirmMessage = computed(
+  () =>
+    `This will permanently delete all contents of "${logs.selectedFileName}". This can't be undone.`,
+)
 </script>
 
 <template>
@@ -145,7 +180,18 @@ async function handleCopy() {
               <IconClipboard class="h-4 w-4" />
               {{ copied ? 'Copied!' : 'Copy' }}
             </button>
+            <button
+              type="button"
+              :disabled="logs.loadingContent || clearing || lines.length === 0"
+              class="flex h-9 items-center gap-2 rounded-lg border border-red-400/20 px-3 text-sm text-red-400 transition-colors hover:bg-red-400/10 disabled:cursor-not-allowed disabled:opacity-50"
+              @click="requestClearFile"
+            >
+              <IconTrash class="h-4 w-4" />
+              Clear
+            </button>
           </div>
+
+          <p v-if="clearError" class="mb-3 text-sm text-red-400">{{ clearError }}</p>
 
           <p v-if="logs.loadingContent" class="text-sm text-neutral-500">Loading…</p>
           <p v-else-if="logs.contentError" class="text-sm text-red-400">{{ logs.contentError }}</p>
@@ -173,5 +219,15 @@ async function handleCopy() {
         </template>
       </section>
     </div>
+
+    <ConfirmDialog
+      :open="showClearConfirm"
+      title="Clear this log file?"
+      :message="clearConfirmMessage"
+      confirm-label="Clear"
+      danger
+      @confirm="confirmClearFile"
+      @cancel="cancelClearFile"
+    />
   </div>
 </template>

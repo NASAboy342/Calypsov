@@ -142,13 +142,28 @@ public sealed class LogService : ILogService, IDisposable
 
     public string GetLogFileContent(string fileName)
     {
+        ValidateFileName(fileName);
+        return _settingRepository.ReadText(LogsFolderName, fileName)
+            ?? throw new ArgumentException($"Log file \"{fileName}\" was not found.");
+    }
+
+    public void ClearLogFile(string fileName)
+    {
+        ValidateFileName(fileName);
+        if (_settingRepository.ReadText(LogsFolderName, fileName) is null)
+        {
+            throw new ArgumentException($"Log file \"{fileName}\" was not found.");
+        }
+
+        _settingRepository.WriteText(LogsFolderName, fileName, string.Empty);
+    }
+
+    private static void ValidateFileName(string fileName)
+    {
         if (string.IsNullOrWhiteSpace(fileName) || Path.GetFileName(fileName) != fileName)
         {
             throw new ArgumentException($"Invalid log file name \"{fileName}\".");
         }
-
-        return _settingRepository.ReadText(LogsFolderName, fileName)
-            ?? throw new ArgumentException($"Log file \"{fileName}\" was not found.");
     }
 
     public void Dispose() => StopScheduler();

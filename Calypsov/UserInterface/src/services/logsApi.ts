@@ -35,3 +35,8 @@ export function getLogFiles() {
 export function getLogFileContent(fileName: string) {
   return requestJson<LogFileContent>(`${BASE_URL}/files/${encodeURIComponent(fileName)}`)
 }
+
+/** Empties the file's content — the file itself stays listed, just with nothing in it. */
+export function clearLogFile(fileName: string) {
+  return requestJson<void>(`${BASE_URL}/files/${encodeURIComponent(fileName)}/clear`, { method: 'POST' })
+}

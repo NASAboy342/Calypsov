@@ -1,6 +1,6 @@
 import { ref } from 'vue'
 import { defineStore } from 'pinia'
-import { getLogFiles, getLogFileContent, type LogFileSummary } from '@/services/logsApi'
+import { getLogFiles, getLogFileContent, clearLogFile, type LogFileSummary } from '@/services/logsApi'
 
 export type { LogFileSummary }
 
@@ -45,6 +45,16 @@ export const useLogsStore = defineStore('logs', () => {
     }
   }
 
+  /** Clears the file's content on the backend, then reflects that locally — emptying the open
+   * view if this was the selected file, and refreshing the file list for its updated timestamp. */
+  async function clearFile(fileName: string) {
+    await clearLogFile(fileName)
+    if (selectedFileName.value === fileName) {
+      content.value = ''
+    }
+    await fetchFiles()
+  }
+
   return {
     files,
     loadingFiles,
@@ -55,5 +65,6 @@ export const useLogsStore = defineStore('logs', () => {
     contentError,
     fetchFiles,
     selectFile,
+    clearFile,
   }
 })

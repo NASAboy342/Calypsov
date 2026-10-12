@@ -24,5 +24,12 @@ public static class LogEndpoints
 
         group.MapGet("/files/{fileName}", (string fileName) =>
             EndpointHelpers.Try(() => Results.Ok(new LogFileContentResponse(fileName, logService.GetLogFileContent(fileName)))));
+
+        group.MapPost("/files/{fileName}/clear", (string fileName) =>
+            EndpointHelpers.Try(() =>
+            {
+                logService.ClearLogFile(fileName);
+                return Results.NoContent();
+            }));
     }
 }

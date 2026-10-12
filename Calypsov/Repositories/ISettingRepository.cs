@@ -26,6 +26,11 @@ public interface ISettingRepository
     /// (a subfolder of the app-data folder), creating the folder and file if they don't exist yet.</summary>
     void AppendText(string folderName, string fileName, string content);
 
+    /// <summary>Overwrites <paramref name="fileName"/> inside <paramref name="folderName"/> with
+    /// <paramref name="content"/> — unlike <see cref="AppendText"/>, this replaces whatever was
+    /// there before. Creates the folder/file if they don't exist yet.</summary>
+    void WriteText(string folderName, string fileName, string content);
+
     /// <summary>Reads the full plain-text contents of <paramref name="fileName"/> inside
     /// <paramref name="folderName"/>, or null if it doesn't exist.</summary>
     string? ReadText(string folderName, string fileName);

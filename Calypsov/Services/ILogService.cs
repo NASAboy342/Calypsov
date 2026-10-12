@@ -24,4 +24,9 @@ public interface ILogService
 
     /// <summary>Throws <see cref="ArgumentException"/> if <paramref name="fileName"/> is invalid or doesn't exist.</summary>
     string GetLogFileContent(string fileName);
+
+    /// <summary>Empties <paramref name="fileName"/>'s content — the file itself is kept (it still
+    /// shows up in <see cref="GetLogFiles"/>), just with nothing in it. Throws
+    /// <see cref="ArgumentException"/> if <paramref name="fileName"/> is invalid or doesn't exist.</summary>
+    void ClearLogFile(string fileName);
 }

@@ -86,6 +86,15 @@ public class SettingRepository : ISettingRepository
         }
     }
 
+    public void WriteText(string folderName, string fileName, string content)
+    {
+        lock (_lockFile)
+        {
+            var filePath = Path.Combine(GetSubFolderPath(folderName), fileName);
+            File.WriteAllText(filePath, content);
+        }
+    }
+
     public string? ReadText(string folderName, string fileName)
     {
         lock (_lockFile)
