@@ -14,6 +14,16 @@ const props = defineProps<{
 // rather than showing a misleading 0%.
 const isDeterminate = computed(() => (props.progress?.total ?? 0) > 0)
 
+// Every tracked file/folder is zipped (or restored) by the time `completed` reaches `total`, but
+// the backend still has real work left — deleting each original folder/file from its location —
+// before the run actually finishes (isRunning flips false). That step reports no progress of its
+// own, so without this, the bar would just sit at 100% doing nothing for however long deletion
+// takes, which reads as frozen. Deliberately generic ("finishing up", not "deleting originals") —
+// the point is to keep showing *that* something is still happening, not what.
+const isFinalizing = computed(
+  () => isDeterminate.value && !!props.progress?.isRunning && props.progress.completed >= props.progress.total,
+)
+
 const percent = computed(() => {
   if (!isDeterminate.value) return 0
   return Math.min(100, Math.round((props.progress!.completed / props.progress!.total) * 100))
@@ -52,18 +62,24 @@ function threadPercent(thread: ZipThreadProgress): number {
     <div class="flex items-center justify-between gap-2">
       <span class="flex items-center gap-1.5 text-[11px] font-bold tracking-wider text-amber-400 uppercase">
         <IconSpinner class="h-3 w-3 animate-spin" />
-        {{ actionLabel }}
+        {{ isFinalizing ? 'Finishing up' : actionLabel }}
       </span>
-      <span v-if="isDeterminate" class="text-sm font-bold text-amber-300">{{ percent }}%</span>
+      <span v-if="isDeterminate && !isFinalizing" class="text-sm font-bold text-amber-300">{{ percent }}%</span>
     </div>
 
-    <p v-if="fileName" class="mt-2 leading-snug font-semibold break-words text-[15px] text-neutral-50">
+    <p
+      v-if="fileName && !isFinalizing"
+      class="mt-2 leading-snug font-semibold break-words text-[15px] text-neutral-50"
+    >
       {{ fileName }}
+    </p>
+    <p v-else-if="isFinalizing" class="mt-2 leading-snug font-semibold text-[15px] text-neutral-400">
+      Finishing up…
     </p>
     <p v-else class="mt-2 leading-snug font-semibold text-[15px] text-neutral-400">Preparing…</p>
 
     <p
-      v-if="directoryPath"
+      v-if="directoryPath && !isFinalizing"
       dir="rtl"
       class="truncate text-left text-xs text-neutral-500"
       :title="progress?.currentItem ?? undefined"
@@ -74,19 +90,19 @@ function threadPercent(thread: ZipThreadProgress): number {
     <div
       class="mt-3 h-2.5 w-full overflow-hidden rounded-full bg-neutral-800"
       role="progressbar"
-      :aria-valuenow="isDeterminate ? percent : undefined"
+      :aria-valuenow="isDeterminate && !isFinalizing ? percent : undefined"
       aria-valuemin="0"
       aria-valuemax="100"
       aria-label="Encryption progress"
     >
       <div
         class="h-full rounded-full bg-gradient-to-r from-amber-500 to-amber-300 shadow-[0_0_12px_rgba(251,191,36,0.7)] transition-[width] duration-200"
-        :class="{ 'animate-pulse': !isDeterminate }"
-        :style="{ width: `${isDeterminate ? percent : 30}%` }"
+        :class="{ 'animate-pulse': !isDeterminate || isFinalizing }"
+        :style="{ width: `${isDeterminate && !isFinalizing ? percent : isFinalizing ? 100 : 30}%` }"
       />
     </div>
 
-    <p v-if="isDeterminate" class="mt-1.5 text-right text-[11px] font-medium text-neutral-500">
+    <p v-if="isDeterminate && !isFinalizing" class="mt-1.5 text-right text-[11px] font-medium text-neutral-500">
       {{ progress!.completed }} / {{ progress!.total }} items
     </p>
 
