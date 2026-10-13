@@ -10,7 +10,6 @@ import SettingsSection from '@/components/SettingsSection.vue'
 import IconFolder from '@/components/icons/IconFolder.vue'
 import IconFile from '@/components/icons/IconFile.vue'
 import IconLayers from '@/components/icons/IconLayers.vue'
-import IconShield from '@/components/icons/IconShield.vue'
 import IconBolt from '@/components/icons/IconBolt.vue'
 import IconLock from '@/components/icons/IconLock.vue'
 import IconGlobe from '@/components/icons/IconGlobe.vue'
@@ -24,6 +23,20 @@ const connectedBrowserCount = computed(
   () => Object.values(browserProfiles.byBrowser).filter((b) => b.selectedId !== null).length,
 )
 
+const hasTargets = computed(() => targets.count > 0)
+
+// Labels reflect real state only, never an assumed one — "protected" once the toggle has actually
+// succeeded, "configured" otherwise — so the dashboard can't imply something is protected before
+// the operation finishes.
+const itemsLabel = computed(() => (encryption.enabled ? 'protected' : 'configured'))
+const itemsAccent = computed(() => (encryption.enabled ? 'text-teal-300' : 'text-neutral-500'))
+
+// enabled still holds the pre-toggle value while toggling is true (the store only flips it once
+// the request resolves), so this reflects the direction of the run in progress.
+const progressActionLabel = computed(() => (encryption.enabled ? 'Restoring' : 'Zipping'))
+
+// The iconic dial toggle, brought back after the dashboard redesign replaced it with a plain
+// button — kept, just restyled to sit within the new, simpler hero layout.
 const ringClass = computed(() => {
   if (encryption.toggling) {
     return 'animate-pulse border-amber-400/70 shadow-[0_0_30px_-8px_rgba(251,191,36,0.6)]'
@@ -47,36 +60,26 @@ const dotClass = computed(() => {
   return encryption.enabled ? 'bg-teal-400' : 'bg-neutral-700'
 })
 
-// enabled still holds the pre-toggle value while toggling is true (the store only flips it
-// once the request resolves), so this reflects the direction of the run in progress.
-const progressActionLabel = computed(() => (encryption.enabled ? 'Restoring' : 'Zipping'))
-
-// A soft glow behind the dial, color-matched to its current ring color — ties the hero card's
-// backdrop to the same on/off/toggling state instead of a static decoration.
-const heroGlowStyle = computed(() => {
-  if (encryption.toggling) {
-    return { background: 'radial-gradient(circle, rgba(251,191,36,0.22), transparent 70%)' }
+const statusDescription = computed(() => {
+  if (!hasTargets.value && !encryption.enabled) {
+    return "You haven't added anything to protect yet. Add folders or files in Settings to get started."
   }
-  return {
-    background: encryption.enabled
-      ? 'radial-gradient(circle, rgba(45,212,191,0.22), transparent 70%)'
-      : 'radial-gradient(circle, rgba(115,115,115,0.12), transparent 70%)',
-  }
+  const itemWord = targets.count === 1 ? 'item' : 'items'
+  const itemVerb = targets.count === 1 ? 'is' : 'are'
+  return encryption.enabled
+    ? `Your ${targets.count} ${itemWord} ${itemVerb} zipped up and hidden from their original location.`
+    : `Turning protection on will zip up and hide the ${targets.count} ${itemWord} you've configured.`
 })
 </script>
 
 <template>
-  <div class="mx-auto flex max-w-5xl flex-col gap-6">
-    <!-- Hero card -->
-    <div class="relative overflow-hidden rounded-3xl border border-white/10 bg-neutral-900 p-8 sm:p-10">
-      <div
-        class="pointer-events-none absolute -top-24 right-0 h-96 w-96 transition-[background] duration-500"
-        :style="heroGlowStyle"
-      />
-
-      <div class="relative flex flex-col gap-12 md:flex-row md:items-center md:justify-between">
+  <div class="mx-auto flex max-w-5xl flex-col gap-5">
+    <!-- Protection status: the dashboard's primary focal point — a clear state, a plain-language
+         explanation of what that state means, and the iconic dial as the one actionable control. -->
+    <div class="rounded-3xl border border-white/10 bg-neutral-900 p-8 sm:p-10">
+      <div class="flex flex-col gap-10 md:flex-row md:items-center md:justify-between">
         <div class="max-w-xl">
-          <p class="mb-4 flex items-center gap-2 text-xs font-semibold tracking-[0.2em] text-teal-400 uppercase">
+          <div class="mb-3 flex items-center gap-2">
             <span class="relative flex h-2 w-2">
               <span
                 v-if="encryption.enabled && !encryption.toggling"
@@ -87,41 +90,32 @@ const heroGlowStyle = computed(() => {
                 :class="encryption.toggling ? 'bg-amber-400' : encryption.enabled ? 'bg-teal-400' : 'bg-neutral-600'"
               />
             </span>
-            Protection status
-          </p>
+            <span class="text-xs font-semibold tracking-[0.2em] text-neutral-400 uppercase">Protection Status</span>
+          </div>
 
-          <h1 class="text-4xl font-extrabold tracking-tight text-neutral-50 sm:text-5xl">
+          <h1 class="text-4xl font-bold tracking-tight text-neutral-50 sm:text-5xl">
             Protection is
-            <span
-              class="bg-linear-to-r bg-clip-text text-transparent"
-              :class="encryption.enabled ? 'from-teal-300 to-indigo-400' : 'from-neutral-500 to-neutral-600'"
-            >
+            <span :class="encryption.enabled ? 'text-teal-300' : 'text-neutral-500'">
               {{ encryption.enabled ? 'on' : 'off' }}
             </span>
           </h1>
 
-          <p class="mt-6 text-base leading-relaxed text-neutral-400">
-            <template v-if="targets.count === 0">
-              No files or folders are configured yet. Add some in Settings to start protecting them.
-            </template>
-            <template v-else>
-              {{ encryption.enabled ? 'Actively protecting' : 'Ready to protect' }}
-              {{ targets.count }} {{ targets.count === 1 ? 'item' : 'items' }} configured in Settings.
-            </template>
+          <p class="mt-4 text-base leading-relaxed text-neutral-400">
+            {{ statusDescription }}
           </p>
 
           <div class="mt-8 flex flex-wrap items-center gap-4">
             <RouterLink
-              v-if="targets.count === 0"
+              v-if="!hasTargets"
               to="/settings"
-              class="rounded-full bg-teal-400 px-6 py-3 text-sm font-semibold text-neutral-950 transition-colors hover:bg-teal-300"
+              class="rounded-full bg-teal-400 px-6 py-3 text-sm font-semibold text-neutral-950 transition-colors hover:bg-teal-300 focus-visible:ring-2 focus-visible:ring-teal-400/40 focus-visible:outline-none"
             >
-              Add files or folders
+              Add Files or Folders
             </RouterLink>
             <RouterLink
               v-else
               to="/settings"
-              class="rounded-full border border-white/15 px-6 py-3 text-sm font-semibold text-neutral-200 transition-colors hover:bg-white/5"
+              class="rounded-full border border-white/15 px-6 py-3 text-sm font-semibold text-neutral-200 transition-colors hover:bg-white/5 focus-visible:ring-2 focus-visible:ring-teal-400/40 focus-visible:outline-none"
             >
               Manage in Settings
             </RouterLink>
@@ -136,19 +130,22 @@ const heroGlowStyle = computed(() => {
               role="switch"
               :aria-checked="encryption.enabled"
               :aria-busy="encryption.toggling"
-              aria-label="Toggle encryption"
+              aria-label="Toggle protection"
               :disabled="encryption.toggling"
-              class="relative h-24 w-24 shrink-0 rounded-full border-2 bg-neutral-900 transition-all duration-300 disabled:cursor-wait"
+              class="relative h-24 w-24 shrink-0 rounded-full border-2 bg-neutral-900 transition-all duration-300 focus-visible:ring-2 focus-visible:ring-teal-400/40 focus-visible:outline-none disabled:cursor-wait"
               :class="ringClass"
               @click="encryption.toggle()"
             >
-            <span
-              class="absolute inset-0 flex justify-center"
-              :class="[handWrapperClass, !encryption.toggling && 'transition-transform duration-300']"
-            >
-              <span class="mt-3 h-7 w-1 rounded-full transition-colors duration-300" :class="handClass" />
-            </span>
-            <span class="absolute inset-0 m-auto h-3 w-3 rounded-full transition-colors duration-300" :class="dotClass" />
+              <span
+                class="absolute inset-0 flex justify-center"
+                :class="[handWrapperClass, !encryption.toggling && 'transition-transform duration-300']"
+              >
+                <span class="mt-3 h-7 w-1 rounded-full transition-colors duration-300" :class="handClass" />
+              </span>
+              <span
+                class="absolute inset-0 m-auto h-3 w-3 rounded-full transition-colors duration-300"
+                :class="dotClass"
+              />
             </button>
           </div>
 
@@ -190,22 +187,16 @@ const heroGlowStyle = computed(() => {
       </div>
     </div>
 
-    <!-- How it works: the dashboard otherwise jumps straight into live status and numbers, with
-         nothing anywhere explaining what the app actually does or how to use it. Reuses
-         SettingsSection purely as a generic collapsible card (it has nothing Settings-specific
-         about it) so a user can collapse this once they're familiar — same localStorage-backed
-         persistence as every section on the Settings page, just under its own storage key. -->
+    <!-- How it works: collapsed by default so it doesn't compete with the status card above for a
+         returning user — SettingsSection persists the collapse state per storage-key, so a user
+         who expands or collapses it keeps that choice on every future visit. Reused purely as a
+         generic collapsible card; nothing about it is Settings-specific. -->
     <SettingsSection
       title="How Calypsov Works"
-      description="What this app does, in three steps."
+      description="New here? A quick 3-step overview."
       storage-key="how-it-works"
+      :default-open="false"
     >
-      <p class="mb-5 max-w-2xl text-sm leading-relaxed text-neutral-400">
-        Calypsov keeps your most sensitive folders and files out of sight. Add anything you'd
-        rather keep private, turn protection on, and it's safely zipped up and removed from its
-        usual spot — turn protection off anytime to bring everything right back, exactly as it
-        was.
-      </p>
       <div class="grid gap-5 sm:grid-cols-3">
         <div class="flex items-start gap-3">
           <span
@@ -249,84 +240,102 @@ const heroGlowStyle = computed(() => {
       </div>
     </SettingsSection>
 
-    <!-- Stat cards -->
-    <div class="grid grid-cols-2 gap-4 sm:grid-cols-4">
+    <!-- Protected items + configuration: two consistently-styled, side-by-side cards rather than
+         four separate boxed stat tiles plus an unrelated-feeling snapshot card below them — reads
+         as one cohesive dashboard section instead of a grid of disconnected widgets. Every tile
+         and row links to Settings, since that's where all of this is actually managed. -->
+    <div class="grid gap-5 lg:grid-cols-2">
       <div class="rounded-2xl border border-white/10 bg-neutral-900 p-5">
-        <span class="flex h-9 w-9 items-center justify-center rounded-lg bg-teal-400/10">
-          <IconFolder class="h-4.5 w-4.5 text-teal-300" />
-        </span>
-        <p class="mt-3 text-3xl font-bold text-neutral-50">{{ targets.folders.length }}</p>
-        <p class="mt-1 text-sm text-neutral-500">Folders protected</p>
+        <h2 class="mb-4 text-[15px] font-semibold text-neutral-100">Protected Items</h2>
+        <div class="grid grid-cols-3 divide-x divide-white/10">
+          <RouterLink
+            to="/settings"
+            class="flex flex-col items-center gap-2 rounded-lg px-2 py-1 text-center transition-colors hover:bg-white/5 focus-visible:ring-2 focus-visible:ring-teal-400/40 focus-visible:outline-none"
+          >
+            <IconFolder class="h-5 w-5 transition-colors duration-300" :class="itemsAccent" />
+            <span class="text-2xl font-bold text-neutral-50">{{ targets.folders.length }}</span>
+            <span class="text-xs text-neutral-500">Folders {{ itemsLabel }}</span>
+          </RouterLink>
+          <RouterLink
+            to="/settings"
+            class="flex flex-col items-center gap-2 rounded-lg px-2 py-1 text-center transition-colors hover:bg-white/5 focus-visible:ring-2 focus-visible:ring-teal-400/40 focus-visible:outline-none"
+          >
+            <IconFile class="h-5 w-5 transition-colors duration-300" :class="itemsAccent" />
+            <span class="text-2xl font-bold text-neutral-50">{{ targets.files.length }}</span>
+            <span class="text-xs text-neutral-500">Files {{ itemsLabel }}</span>
+          </RouterLink>
+          <RouterLink
+            to="/settings"
+            class="flex flex-col items-center gap-2 rounded-lg px-2 py-1 text-center transition-colors hover:bg-white/5 focus-visible:ring-2 focus-visible:ring-teal-400/40 focus-visible:outline-none"
+          >
+            <IconLayers class="h-5 w-5 transition-colors duration-300" :class="itemsAccent" />
+            <span class="text-2xl font-bold text-neutral-50">{{ targets.count }}</span>
+            <span class="text-xs text-neutral-500">Total {{ itemsLabel }}</span>
+          </RouterLink>
+        </div>
       </div>
-      <div class="rounded-2xl border border-white/10 bg-neutral-900 p-5">
-        <span class="flex h-9 w-9 items-center justify-center rounded-lg bg-teal-400/10">
-          <IconFile class="h-4.5 w-4.5 text-teal-300" />
-        </span>
-        <p class="mt-3 text-3xl font-bold text-neutral-50">{{ targets.files.length }}</p>
-        <p class="mt-1 text-sm text-neutral-500">Files protected</p>
-      </div>
-      <div class="rounded-2xl border border-white/10 bg-neutral-900 p-5">
-        <span class="flex h-9 w-9 items-center justify-center rounded-lg bg-teal-400/10">
-          <IconLayers class="h-4.5 w-4.5 text-teal-300" />
-        </span>
-        <p class="mt-3 text-3xl font-bold text-neutral-50">{{ targets.count }}</p>
-        <p class="mt-1 text-sm text-neutral-500">Total items configured</p>
-      </div>
-      <div class="rounded-2xl border border-white/10 bg-neutral-900 p-5">
-        <span
-          class="flex h-9 w-9 items-center justify-center rounded-lg"
-          :class="encryption.enabled ? 'bg-teal-400/10' : 'bg-white/5'"
-        >
-          <IconShield class="h-4.5 w-4.5" :class="encryption.enabled ? 'text-teal-300' : 'text-neutral-500'" />
-        </span>
-        <p class="mt-3 text-3xl font-bold" :class="encryption.enabled ? 'text-teal-300' : 'text-neutral-50'">
-          {{ encryption.enabled ? 'ON' : 'OFF' }}
-        </p>
-        <p class="mt-1 text-sm text-neutral-500">Current status</p>
-      </div>
-    </div>
 
-    <!-- Configuration snapshot -->
-    <div class="rounded-2xl border border-white/10 bg-neutral-900 p-5">
-      <h2 class="mb-4 text-[15px] font-semibold text-neutral-100">Configuration snapshot</h2>
-      <div class="grid gap-5 sm:grid-cols-3">
-        <div class="flex items-center gap-3">
-          <IconBolt class="h-5 w-5 shrink-0 text-amber-300" />
-          <div>
-            <p class="text-sm text-neutral-300">Turbo Zip</p>
+      <div class="rounded-2xl border border-white/10 bg-neutral-900 p-5">
+        <h2 class="mb-4 text-[15px] font-semibold text-neutral-100">Configuration</h2>
+        <div class="flex flex-col divide-y divide-white/10">
+          <RouterLink
+            to="/settings"
+            class="flex items-center justify-between gap-3 rounded-lg px-2 py-2.5 transition-colors first:pt-1 last:pb-1 hover:bg-white/5 focus-visible:ring-2 focus-visible:ring-teal-400/40 focus-visible:outline-none"
+          >
+            <span class="flex items-center gap-2.5 text-sm text-neutral-300">
+              <IconBolt
+                class="h-4 w-4 shrink-0"
+                :class="zipSettings.isUseTurboZip ? 'text-teal-300' : 'text-neutral-600'"
+              />
+              Turbo Zip
+            </span>
             <span
-              class="mt-0.5 inline-block rounded-full px-2.5 py-0.5 text-xs font-bold"
+              class="rounded-full px-2.5 py-0.5 text-xs font-bold"
               :class="zipSettings.isUseTurboZip ? 'bg-teal-400/10 text-teal-300' : 'bg-white/5 text-neutral-500'"
             >
               {{ zipSettings.isUseTurboZip ? 'On' : 'Off' }}
             </span>
-          </div>
-        </div>
+          </RouterLink>
 
-        <div class="flex items-center gap-3">
-          <IconLock class="h-5 w-5 shrink-0 text-amber-300" />
-          <div>
-            <p class="text-sm text-neutral-300">Zip encryption</p>
+          <RouterLink
+            to="/settings"
+            class="flex items-center justify-between gap-3 rounded-lg px-2 py-2.5 transition-colors first:pt-1 last:pb-1 hover:bg-white/5 focus-visible:ring-2 focus-visible:ring-teal-400/40 focus-visible:outline-none"
+          >
+            <span class="flex items-center gap-2.5 text-sm text-neutral-300">
+              <IconLock
+                class="h-4 w-4 shrink-0"
+                :class="zipSettings.isEncryptZippedFile ? 'text-teal-300' : 'text-neutral-600'"
+              />
+              Zip Encryption
+            </span>
             <span
-              class="mt-0.5 inline-block rounded-full px-2.5 py-0.5 text-xs font-bold"
-              :class="zipSettings.isEncryptZippedFile ? 'bg-teal-400/10 text-teal-300' : 'bg-white/5 text-neutral-500'"
+              class="rounded-full px-2.5 py-0.5 text-xs font-bold"
+              :class="
+                zipSettings.isEncryptZippedFile ? 'bg-teal-400/10 text-teal-300' : 'bg-white/5 text-neutral-500'
+              "
             >
               {{ zipSettings.isEncryptZippedFile ? 'On' : 'Off' }}
             </span>
-          </div>
-        </div>
+          </RouterLink>
 
-        <div class="flex items-center gap-3">
-          <IconGlobe class="h-5 w-5 shrink-0 text-amber-300" />
-          <div>
-            <p class="text-sm text-neutral-300">Browser profiles</p>
+          <RouterLink
+            to="/settings"
+            class="flex items-center justify-between gap-3 rounded-lg px-2 py-2.5 transition-colors first:pt-1 last:pb-1 hover:bg-white/5 focus-visible:ring-2 focus-visible:ring-teal-400/40 focus-visible:outline-none"
+          >
+            <span class="flex items-center gap-2.5 text-sm text-neutral-300">
+              <IconGlobe
+                class="h-4 w-4 shrink-0"
+                :class="connectedBrowserCount > 0 ? 'text-teal-300' : 'text-neutral-600'"
+              />
+              Browser Profiles
+            </span>
             <span
-              class="mt-0.5 inline-block rounded-full px-2.5 py-0.5 text-xs font-bold"
+              class="rounded-full px-2.5 py-0.5 text-xs font-bold"
               :class="connectedBrowserCount > 0 ? 'bg-teal-400/10 text-teal-300' : 'bg-white/5 text-neutral-500'"
             >
-              {{ connectedBrowserCount }} of 2 connected
+              {{ connectedBrowserCount }} of 2
             </span>
-          </div>
+          </RouterLink>
         </div>
       </div>
     </div>

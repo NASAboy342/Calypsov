@@ -5,7 +5,7 @@ import IconSettings from './icons/IconSettings.vue'
 import IconLogs from './icons/IconLogs.vue'
 
 const linkClass =
-  'flex items-center gap-3 rounded-lg px-3 py-2.5 text-sm font-medium text-neutral-400 transition-colors hover:bg-white/5 hover:text-neutral-100'
+  'flex items-center gap-3 rounded-lg px-3 py-2.5 text-sm font-medium text-neutral-400 transition-colors hover:bg-white/5 hover:text-neutral-100 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-teal-400/40'
 const activeLinkClass = 'bg-teal-400/10 text-teal-300'
 </script>
 
