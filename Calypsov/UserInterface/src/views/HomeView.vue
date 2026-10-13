@@ -60,6 +60,12 @@ const dotClass = computed(() => {
   return encryption.enabled ? 'bg-teal-400' : 'bg-neutral-700'
 })
 
+// Replaces the old passive "Protection: On/Off" readout with an action-oriented hint — the dial
+// had no sign anywhere that it was something to click, so pairing it with what clicking *does*
+// (rather than just restating the state already shown in the heading above) is the label doing
+// real work instead of just decorating the control.
+const dialHintLabel = computed(() => (encryption.enabled ? 'Click to turn off' : 'Click to turn on'))
+
 const statusDescription = computed(() => {
   if (!hasTargets.value && !encryption.enabled) {
     return "You haven't added anything to protect yet. Add folders or files in Settings to get started."
@@ -122,19 +128,24 @@ const statusDescription = computed(() => {
           </div>
         </div>
 
-        <div class="flex flex-col items-center gap-4">
-          <div class="relative flex h-32 w-32 shrink-0 items-center justify-center">
-            <span class="absolute inset-0 rounded-full border border-dashed border-white/10" />
-            <button
-              type="button"
-              role="switch"
-              :aria-checked="encryption.enabled"
-              :aria-busy="encryption.toggling"
-              aria-label="Toggle protection"
-              :disabled="encryption.toggling"
-              class="relative h-24 w-24 shrink-0 rounded-full border-2 bg-neutral-900 transition-all duration-300 focus-visible:ring-2 focus-visible:ring-teal-400/40 focus-visible:outline-none disabled:cursor-wait"
+        <div class="flex flex-col items-center gap-3">
+          <button
+            type="button"
+            role="switch"
+            :aria-checked="encryption.enabled"
+            :aria-busy="encryption.toggling"
+            aria-label="Toggle protection"
+            :disabled="encryption.toggling"
+            class="group relative flex h-32 w-32 shrink-0 items-center justify-center rounded-full transition-transform duration-200 hover:scale-105 focus-visible:ring-2 focus-visible:ring-teal-400/40 focus-visible:outline-none active:scale-95 disabled:cursor-wait disabled:hover:scale-100"
+            @click="encryption.toggle()"
+          >
+            <span
+              class="absolute inset-0 rounded-full border border-dashed border-white/10 transition-colors duration-200 group-hover:border-teal-400/40"
+              :class="{ 'animate-pulse': !encryption.enabled && !encryption.toggling }"
+            />
+            <span
+              class="relative h-24 w-24 shrink-0 rounded-full border-2 bg-neutral-900 transition-all duration-300"
               :class="ringClass"
-              @click="encryption.toggle()"
             >
               <span
                 class="absolute inset-0 flex justify-center"
@@ -146,8 +157,8 @@ const statusDescription = computed(() => {
                 class="absolute inset-0 m-auto h-3 w-3 rounded-full transition-colors duration-300"
                 :class="dotClass"
               />
-            </button>
-          </div>
+            </span>
+          </button>
 
           <Transition
             mode="out-in"
@@ -163,11 +174,8 @@ const statusDescription = computed(() => {
               :progress="encryption.progress"
               :action-label="progressActionLabel"
             />
-            <p v-else class="text-sm text-neutral-400">
-              Protection:
-              <strong class="font-semibold" :class="encryption.enabled ? 'text-teal-300' : 'text-neutral-200'">
-                {{ encryption.enabled ? 'On' : 'Off' }}
-              </strong>
+            <p v-else class="text-sm font-medium text-neutral-400">
+              {{ dialHintLabel }}
             </p>
           </Transition>
 
