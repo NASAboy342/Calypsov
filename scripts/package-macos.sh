@@ -19,7 +19,9 @@ UI_DIR="$APP_PROJECT_DIR/UserInterface"
 OUT_DIR="$ROOT_DIR/Deployed/MacOs"
 APP_NAME="Calypsov"
 BUNDLE_ID="com.calypsov.desktop"
-VERSION="1.0.0"
+# Single source of truth is Calypsov.csproj's <Version> — read it live so this
+# script can never drift from the app's own reported version.
+VERSION="$(dotnet msbuild "$APP_PROJECT_DIR/Calypsov.csproj" -getProperty:Version -nologo)"
 
 echo "==> Building frontend"
 # Uses build-only rather than build: the full `build` script also runs a

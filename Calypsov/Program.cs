@@ -51,6 +51,8 @@ class Program
 
         services.AddSingleton<ILogService, LogService>();
 
+        services.AddSingleton<IAppUpdateService, AppUpdateService>();
+
         using var serviceProvider = services.BuildServiceProvider();
 
         // Resolving ILogService here (rather than lazily, on first use) is what makes the
@@ -70,6 +72,7 @@ class Program
         app.MapEncryptionEndpoints(serviceProvider.GetRequiredService<IEncryptionSettingsService>());
         app.MapBrowserEndpoints(serviceProvider.GetRequiredService<IBrowserProfileService>());
         app.MapLogEndpoints(logService);
+        app.MapAppEndpoints(serviceProvider.GetRequiredService<IAppUpdateService>());
 
         // The appUrl is set to the local development server when in debug mode.
         // This helps with hot reloading and debugging.

@@ -37,4 +37,27 @@ public static class EndpointHelpers
             return Results.Json(new ErrorResponse(ex.Message), statusCode: StatusCodes.Status500InternalServerError);
         }
     }
+
+    public static async Task<IResult> Try(Func<Task<IResult>> body)
+    {
+        try
+        {
+            return await body();
+        }
+        catch (ArgumentException ex)
+        {
+            LogService?.LogError(ex.ToString());
+            return Results.BadRequest(new ErrorResponse(ex.Message));
+        }
+        catch (InvalidOperationException ex)
+        {
+            LogService?.LogError(ex.ToString());
+            return Results.Conflict(new ErrorResponse(ex.Message));
+        }
+        catch (Exception ex)
+        {
+            LogService?.LogError(ex.ToString());
+            return Results.Json(new ErrorResponse(ex.Message), statusCode: StatusCodes.Status500InternalServerError);
+        }
+    }
 }

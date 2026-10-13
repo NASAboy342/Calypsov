@@ -1,5 +1,5 @@
 <script setup lang="ts">
-import { computed, ref } from 'vue'
+import { computed, onMounted, ref } from 'vue'
 import { useTargetsStore, EnumTargetCategory } from '@/stores/targets'
 import { useEncryptionStore } from '@/stores/encryption'
 import { pickFiles, pickFolders } from '@/services/dialogApi'
@@ -18,13 +18,19 @@ import Checkbox from '@/components/Checkbox.vue'
 import { useZipSettingsStore } from '@/stores/zipSettings'
 import { useLogSettingsStore } from '@/stores/logSettings'
 import { useAppSettingEncryptionStore } from '@/stores/appSettingEncryption'
+import { useAppUpdateStore } from '@/stores/appUpdate'
 import { fuzzyMatch } from '@/utils/fuzzyMatch'
 
 const targets = useTargetsStore()
 const zipSettings = useZipSettingsStore()
 const logSettings = useLogSettingsStore()
 const appSettingEncryption = useAppSettingEncryptionStore()
+const appUpdate = useAppUpdateStore()
 const encryption = useEncryptionStore()
+
+onMounted(() => {
+  appUpdate.checkForUpdate()
+})
 
 const folderSearch = ref('')
 const fileSearch = ref('')
@@ -584,6 +590,54 @@ async function handleBrowse() {
         </div>
 
         <p v-if="logSettings.error" class="mt-3 text-xs text-red-400">{{ logSettings.error }}</p>
+      </SettingsSection>
+
+      <SettingsSection
+        title="About & Updates"
+        description="See which version of Calypsov you're running and check for a newer one."
+        storage-key="about"
+      >
+        <div class="flex items-center justify-between gap-4">
+          <div>
+            <p class="text-sm font-semibold text-neutral-100">
+              Version {{ appUpdate.currentVersion ?? '…' }}
+            </p>
+            <p class="mt-1 text-xs text-neutral-500">Calypsov checks GitHub for the latest release.</p>
+          </div>
+          <button
+            type="button"
+            :disabled="appUpdate.checking"
+            class="h-9 shrink-0 rounded-lg border border-white/10 bg-neutral-950 px-4 text-sm font-semibold text-neutral-200 transition-colors hover:border-teal-400/40 hover:text-teal-300 disabled:cursor-not-allowed disabled:opacity-50"
+            @click="appUpdate.checkForUpdate"
+          >
+            {{ appUpdate.checking ? 'Checking…' : 'Check for Updates' }}
+          </button>
+        </div>
+
+        <div
+          v-if="appUpdate.updateAvailable"
+          class="mt-4 flex items-center justify-between gap-4 rounded-xl border border-teal-400/25 bg-teal-400/10 px-4 py-3.5"
+        >
+          <p class="text-sm text-teal-200">
+            A new version is available — <span class="font-semibold">v{{ appUpdate.latestVersion }}</span>
+          </p>
+          <button
+            type="button"
+            class="h-9 shrink-0 rounded-lg bg-teal-400 px-4 text-sm font-semibold text-neutral-950 transition-colors hover:bg-teal-300"
+            @click="appUpdate.openRelease"
+          >
+            View Release
+          </button>
+        </div>
+
+        <p
+          v-else-if="appUpdate.checked && !appUpdate.error"
+          class="mt-4 text-sm text-neutral-500"
+        >
+          You're on the latest version.
+        </p>
+
+        <p v-if="appUpdate.error" class="mt-4 text-sm text-red-400">{{ appUpdate.error }}</p>
       </SettingsSection>
     </div>
 
