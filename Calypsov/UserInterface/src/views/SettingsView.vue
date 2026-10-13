@@ -489,7 +489,7 @@ async function handleBrowse() {
 
       <SettingsSection
         title="Encryption Options"
-        description="Fine-tune how your zip archives are built."
+        description="Fine-tune how your files are packaged and protected."
         storage-key="zip-settings"
       >
         <div class="flex flex-col divide-y divide-white/10">
@@ -497,8 +497,9 @@ async function handleBrowse() {
             <div>
               <p class="text-sm font-semibold text-neutral-100">Turbo Zip</p>
               <p class="mt-1 max-w-lg text-xs text-neutral-500">
-                Split the zip job across your CPU's available threads once 20+ folders are targeted —
-                finishes much faster, but runs the CPU hotter and uses more power.
+                When protecting 20 or more folders at once, uses more of your computer's power to
+                finish much faster. Your computer may run warmer and use more battery while it's
+                working.
               </p>
             </div>
             <ToggleSwitch
@@ -513,8 +514,8 @@ async function handleBrowse() {
             <div>
               <p class="text-sm font-semibold text-neutral-100">Encrypt Zipped Files</p>
               <p class="mt-1 max-w-lg text-xs text-neutral-500">
-                Adds a further layer of encryption to the zip output, making it unreadable without this
-                app — more secure, at the cost of a longer zip process.
+                Adds extra protection to your packaged files so they can only be opened with this
+                app — more secure, but takes a bit longer to finish.
               </p>
             </div>
             <ToggleSwitch
@@ -529,9 +530,10 @@ async function handleBrowse() {
             <div>
               <p class="text-sm font-semibold text-neutral-100">Encrypt App Settings</p>
               <p class="mt-1 max-w-lg text-xs text-neutral-500">
-                Makes the list of protected folders and files unreadable to someone who opens this
-                app's settings file directly on your computer — not full encryption, but enough to
-                stop it being read at a glance. Recommended to leave on.
+                Hides the list of folders and files you're protecting, so it can't just be opened and
+                read by someone else using your computer. This is a light layer of protection, not
+                the same as full encryption — but it stops your private list from being seen at a
+                glance. Recommended to leave on.
               </p>
             </div>
             <ToggleSwitch
@@ -549,7 +551,7 @@ async function handleBrowse() {
 
       <SettingsSection
         title="Browser Profiles"
-        description="Pick which browser profile's data should be included."
+        description="Pick which browser profile's saved data (like bookmarks and passwords) should be protected too."
         storage-key="browser-profiles"
       >
         <div class="grid gap-5 sm:grid-cols-2">
@@ -560,15 +562,17 @@ async function handleBrowse() {
 
       <SettingsSection
         title="Logging"
-        description="Record app activity and errors to a log file you can review on the Logs page."
+        description="Keep a history of what the app has been doing, so you (or support) can look back if something goes wrong."
         storage-key="logging"
       >
         <div class="flex items-start justify-between gap-4">
           <div>
             <p class="text-sm font-semibold text-neutral-100">Record Logs</p>
             <p class="mt-1 max-w-lg text-xs text-neutral-500">
-              When on, API activity and errors are queued and written to a dated file under Logs — kept
-              for the last 4 days. When off, nothing is recorded and no background work runs. Recommended to leave off. Unless you would like to report bug.
+              When on, the app keeps a record of what it's been doing and any errors it runs into,
+              which you can view on the Logs page — kept for the last 4 days, then deleted
+              automatically. Turn this on if you're reporting a problem and want to share what
+              happened; otherwise it's fine to leave off.
             </p>
           </div>
           <ToggleSwitch
