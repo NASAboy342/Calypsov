@@ -6,6 +6,7 @@ import { useTargetsStore } from '@/stores/targets'
 import { useZipSettingsStore } from '@/stores/zipSettings'
 import { useBrowserProfilesStore } from '@/stores/browserProfiles'
 import EncryptionProgressBar from '@/components/EncryptionProgressBar.vue'
+import SettingsSection from '@/components/SettingsSection.vue'
 import IconFolder from '@/components/icons/IconFolder.vue'
 import IconFile from '@/components/icons/IconFile.vue'
 import IconLayers from '@/components/icons/IconLayers.vue'
@@ -188,6 +189,65 @@ const heroGlowStyle = computed(() => {
         </div>
       </div>
     </div>
+
+    <!-- How it works: the dashboard otherwise jumps straight into live status and numbers, with
+         nothing anywhere explaining what the app actually does or how to use it. Reuses
+         SettingsSection purely as a generic collapsible card (it has nothing Settings-specific
+         about it) so a user can collapse this once they're familiar — same localStorage-backed
+         persistence as every section on the Settings page, just under its own storage key. -->
+    <SettingsSection
+      title="How Calypsov Works"
+      description="What this app does, in three steps."
+      storage-key="how-it-works"
+    >
+      <p class="mb-5 max-w-2xl text-sm leading-relaxed text-neutral-400">
+        Calypsov keeps your most sensitive folders and files out of sight. Add anything you'd
+        rather keep private, turn protection on, and it's safely zipped up and removed from its
+        usual spot — turn protection off anytime to bring everything right back, exactly as it
+        was.
+      </p>
+      <div class="grid gap-5 sm:grid-cols-3">
+        <div class="flex items-start gap-3">
+          <span
+            class="flex h-9 w-9 shrink-0 items-center justify-center rounded-lg bg-teal-400/10 text-sm font-bold text-teal-300"
+          >
+            1
+          </span>
+          <div>
+            <p class="text-sm font-semibold text-neutral-100">Choose what to protect</p>
+            <p class="mt-1 text-xs text-neutral-500">
+              Add folders or files you want kept out of sight, in Settings.
+            </p>
+          </div>
+        </div>
+        <div class="flex items-start gap-3">
+          <span
+            class="flex h-9 w-9 shrink-0 items-center justify-center rounded-lg bg-teal-400/10 text-sm font-bold text-teal-300"
+          >
+            2
+          </span>
+          <div>
+            <p class="text-sm font-semibold text-neutral-100">Turn protection on</p>
+            <p class="mt-1 text-xs text-neutral-500">
+              Calypsov zips everything up and removes it from its original location.
+            </p>
+          </div>
+        </div>
+        <div class="flex items-start gap-3">
+          <span
+            class="flex h-9 w-9 shrink-0 items-center justify-center rounded-lg bg-teal-400/10 text-sm font-bold text-teal-300"
+          >
+            3
+          </span>
+          <div>
+            <p class="text-sm font-semibold text-neutral-100">Turn it off anytime</p>
+            <p class="mt-1 text-xs text-neutral-500">
+              Flip the switch back and everything returns exactly where it was.
+            </p>
+          </div>
+        </div>
+      </div>
+    </SettingsSection>
 
     <!-- Stat cards -->
     <div class="grid grid-cols-2 gap-4 sm:grid-cols-4">
