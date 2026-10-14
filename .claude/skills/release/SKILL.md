@@ -34,13 +34,14 @@ Walks Calypsov from a clean `main` branch all the way to a published, non-draft 
    ```bash
    scripts/package-macos.sh osx-arm64
    ```
-   This reads the version live from the csproj (no separate version argument needed), builds the frontend, publishes a self-contained backend, assembles the `.app`, ad-hoc signs it, and produces a `.dmg` under `Deployed/MacOs/`. Takes a few minutes. Note what it did NOT do: proper Developer ID signing or notarization aren't set up for this project (see the script's own header comment) — the `.dmg` will show an "unidentified developer" Gatekeeper warning for anyone who downloads it. That's a known, already-discussed limitation, not something to silently fix here.
+   This reads the version live from the csproj (no separate version argument needed), builds the frontend, publishes a self-contained backend, assembles the `.app`, ad-hoc signs it, and produces **`Deployed/MacOs/Calypsov.dmg`** (a fixed filename — it does NOT embed the version, so it gets overwritten on every build and would collide across releases if uploaded as-is). Takes a few minutes. Note what it did NOT do: proper Developer ID signing or notarization aren't set up for this project (see the script's own header comment) — the `.dmg` will show an "unidentified developer" Gatekeeper warning for anyone who downloads it. That's a known, already-discussed limitation, not something to silently fix here.
 
-   If the user also needs an Intel build, repeat with `scripts/package-macos.sh osx-x64`.
+   If the user also needs an Intel build, repeat with `scripts/package-macos.sh osx-x64` (also produces `Deployed/MacOs/Calypsov.dmg`, overwriting the arm64 one — copy/rename the arm64 one aside first, e.g. to `Calypsov-X.Y.Z-osx-arm64.dmg`, before building the x64 one, if shipping both architectures in one release).
 
-   Confirm the output file exists and note its exact path/name before continuing:
+   Confirm the output file exists, then copy it to a versioned name before uploading (so it doesn't collide with a future release's `Calypsov.dmg`):
    ```bash
-   ls -la Deployed/MacOs/*.dmg
+   ls -la Deployed/MacOs/Calypsov.dmg
+   cp Deployed/MacOs/Calypsov.dmg Deployed/MacOs/Calypsov-X.Y.Z-osx-arm64.dmg
    ```
 
 4. **Checkpoint — tag and push.** Show the user the exact tag name (`vX.Y.Z`, matching the csproj version) and ask them to confirm before running:
@@ -62,6 +63,7 @@ Walks Calypsov from a clean `main` branch all the way to a published, non-draft 
      --title "Calypsov X.Y.Z" \
      --notes "<release notes>"
    ```
+   (Uses the versioned copy made in step 3, not the raw `Deployed/MacOs/Calypsov.dmg`.)
    `gh release create` defaults to a real, non-draft, non-prerelease release — correct, since GitHub's "latest release" API (what `AppUpdateService.CheckForUpdateAsync()` calls) deliberately excludes drafts and pre-releases. **Never** pass `--draft` or `--prerelease` for a release meant to be picked up by the in-app update checker. If the user wants a draft first to review before going fully live, that's fine — just make sure the final publish step removes draft status, and don't treat a draft as "done" for this skill's purpose.
 
    If this is a second/later architecture (e.g. adding an Intel `.dmg` to an existing release), use `gh release upload vX.Y.Z <file>` instead of `create`.
