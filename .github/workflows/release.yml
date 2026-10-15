@@ -29,7 +29,10 @@ jobs:
 
       - name: Install frontend dependencies
         working-directory: Calypsov/UserInterface
-        run: npm ci
+        # --legacy-peer-deps: the committed package-lock.json has a pre-existing peer-dependency
+        # conflict (vite 8.x vs @vitejs/plugin-vue's ^5/^6 peer range) that only a strict `npm ci`
+        # surfaces - unrelated to this workflow, not something to fix here by changing versions.
+        run: npm ci --legacy-peer-deps
 
       - name: Build macOS package
         run: scripts/package-macos.sh osx-arm64
@@ -60,7 +63,8 @@ jobs:
 
       - name: Install frontend dependencies
         working-directory: Calypsov/UserInterface
-        run: npm ci
+        # See the same step in build-macos for why --legacy-peer-deps is needed here.
+        run: npm ci --legacy-peer-deps
 
       - name: Build Windows installer
         shell: pwsh
