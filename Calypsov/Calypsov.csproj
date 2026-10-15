@@ -9,7 +9,7 @@
 		<!-- Single source of truth for the app's version (SemVer) — the SDK derives
 		     AssemblyVersion/FileVersion/InformationalVersion from this automatically.
 		     See Calypsov/PROJECT_README.md's "Versioning & Releases" section for the release recipe. -->
-		<Version>1.0.0</Version>
+		<Version>1.1.0</Version>
 		<!-- Without this, the SDK appends "+<git-commit-sha>" to InformationalVersion automatically,
 		     which is what AppUpdateService reads to show the user their version — keep it a clean SemVer string. -->
 		<IncludeSourceRevisionInInformationalVersion>false</IncludeSourceRevisionInInformationalVersion>
