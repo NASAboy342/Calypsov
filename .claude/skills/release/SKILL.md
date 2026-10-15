@@ -1,13 +1,13 @@
 ---
 name: release
-description: Cuts and publishes a new Calypsov release — from building the signed .dmg through tagging and creating the GitHub Release. Use when the user says things like "let's release", "publish a new version", "cut a release", "ship it", or asks how to release.
+description: Cuts and publishes a new Calypsov release — commits/tags/pushes a version, then watches the GitHub Actions pipeline build the macOS .dmg + Windows installer and publish the GitHub Release. Use when the user says things like "let's release", "publish a new version", "cut a release", "ship it", or asks how to release.
 ---
 
 # release
 
-Walks Calypsov from a clean `main` branch all the way to a published, non-draft GitHub Release that the in-app "Check for Updates" feature (`Calypsov/Services/AppUpdateService.cs`) will actually detect. See `Calypsov/PROJECT_README.md`'s "Versioning & Releases" convention for the background this skill implements.
+Walks Calypsov from a clean `main` branch to a published, non-draft GitHub Release that the in-app "Check for Updates" feature (`Calypsov/Services/AppUpdateService.cs`) will actually detect. Pushing a version tag triggers `.github/workflows/release.yml`, which builds the macOS `.dmg` (on a real `macos-latest` runner) and the Windows installer (on a real `windows-latest` runner) in parallel, then publishes both as one GitHub Release automatically — there's no local packaging step in this flow. See `Calypsov/PROJECT_README.md`'s "Versioning & Releases" convention for the background.
 
-**This process has real, public, hard-to-reverse steps** (pushing a git tag, publishing a GitHub Release). Treat steps 4 and 6 below as checkpoints: confirm with the user before running them rather than barreling through. Steps 1–3 and 5 are local/reversible and fine to run without stopping.
+**Pushing the tag is the one real, public, hard-to-reverse step** — it kicks off the entire pipeline, including a public release at the end. Treat step 3 below as a checkpoint: confirm with the user before running it. Steps 1–2 and 4–5 are local/read-only and fine to run without stopping.
 
 ## Steps
 
@@ -16,7 +16,7 @@ Walks Calypsov from a clean `main` branch all the way to a published, non-draft 
    git status --short --branch
    ```
    - Must be on `main` (or whatever branch the user actually releases from — ask if unclear) with a clean working tree. If there are uncommitted changes, stop and ask the user whether to commit, stash, or abort — don't decide for them.
-   - Confirm the backend builds clean and the frontend type-checks clean before going further:
+   - Confirm the backend builds clean and the frontend type-checks clean before going further (the CI pipeline runs the equivalent build steps, but catching a break locally first is faster than waiting on two parallel CI runners to fail):
      ```bash
      dotnet build Calypsov/Calypsov.csproj
      (cd Calypsov/UserInterface && npx vue-tsc --noEmit)
@@ -26,52 +26,53 @@ Walks Calypsov from a clean `main` branch all the way to a published, non-draft 
    ```bash
    dotnet msbuild Calypsov/Calypsov.csproj -getProperty:Version -nologo
    ```
-   Ask the user to confirm this is the version they want to ship, or what to bump it to (MAJOR for breaking/incompatible changes, MINOR for new features, PATCH for fixes — this is a judgment call about the actual changes since the last release, so ask rather than guess). If it needs to change, edit the `<Version>` property in `Calypsov/Calypsov.csproj` and re-run the command above to confirm it took.
+   Ask the user to confirm this is the version they want to ship, or what to bump it to (MAJOR for breaking/incompatible changes, MINOR for new features, PATCH for fixes — this is a judgment call about the actual changes since the last release, so ask rather than guess). If it needs to change, edit the `<Version>` property in `Calypsov/Calypsov.csproj`, commit that change, and re-run the command above to confirm it took.
 
-   Also check `git tag -l` doesn't already have a tag for this version — a duplicate tag push will fail.
+   Also check `git tag -l` doesn't already have a tag for this version — a duplicate tag push will fail (and the `release` job in CI only runs for an actual tag push, so a bad tag can't be easily "redone" without deleting it first).
 
-3. **Build the `.dmg`**:
+3. **Checkpoint — tag and push.** Show the user the exact tag name (`vX.Y.Z`, matching the csproj version) and ask them to confirm before running:
    ```bash
-   scripts/package-macos.sh osx-arm64
-   ```
-   This reads the version live from the csproj (no separate version argument needed), builds the frontend, publishes a self-contained backend, assembles the `.app`, ad-hoc signs it, and produces **`Deployed/MacOs/Calypsov.dmg`** (a fixed filename — it does NOT embed the version, so it gets overwritten on every build and would collide across releases if uploaded as-is). Takes a few minutes. Note what it did NOT do: proper Developer ID signing or notarization aren't set up for this project (see the script's own header comment) — the `.dmg` will show an "unidentified developer" Gatekeeper warning for anyone who downloads it. That's a known, already-discussed limitation, not something to silently fix here.
-
-   If the user also needs an Intel build, repeat with `scripts/package-macos.sh osx-x64` (also produces `Deployed/MacOs/Calypsov.dmg`, overwriting the arm64 one — copy/rename the arm64 one aside first, e.g. to `Calypsov-X.Y.Z-osx-arm64.dmg`, before building the x64 one, if shipping both architectures in one release).
-
-   Confirm the output file exists, then copy it to a versioned name before uploading (so it doesn't collide with a future release's `Calypsov.dmg`):
-   ```bash
-   ls -la Deployed/MacOs/Calypsov.dmg
-   cp Deployed/MacOs/Calypsov.dmg Deployed/MacOs/Calypsov-X.Y.Z-osx-arm64.dmg
-   ```
-
-4. **Checkpoint — tag and push.** Show the user the exact tag name (`vX.Y.Z`, matching the csproj version) and ask them to confirm before running:
-   ```bash
+   git push origin main   # only if step 2 made a commit (e.g. a version bump)
    git tag vX.Y.Z
    git push origin vX.Y.Z
    ```
-   A pushed tag is visible to anyone watching the public repo and is awkward (not impossible) to take back — this is worth a real confirmation, not a rhetorical one.
+   This is what starts the whole pipeline — both builds and the eventual public release. Worth a real confirmation, not a rhetorical one.
 
-5. **Check `gh` auth** before trying to use it:
+4. **Watch the CI run**:
    ```bash
-   gh auth status
+   gh run list --workflow=release.yml --limit 1
+   gh run watch <run-id>
    ```
-   If not authenticated, tell the user to run `gh auth login` themselves (interactive browser flow — not something to drive non-interactively on their behalf) and wait for them to confirm it's done.
-
-6. **Checkpoint — publish the GitHub Release.** Confirm the release notes/title with the user, then run:
+   If it fails, don't blindly re-run — fetch the failing job's log and diagnose:
    ```bash
-   gh release create vX.Y.Z Deployed/MacOs/Calypsov-X.Y.Z-osx-arm64.dmg \
-     --title "Calypsov X.Y.Z" \
-     --notes "<release notes>"
+   gh run view <run-id> --log-failed
    ```
-   (Uses the versioned copy made in step 3, not the raw `Deployed/MacOs/Calypsov.dmg`.)
-   `gh release create` defaults to a real, non-draft, non-prerelease release — correct, since GitHub's "latest release" API (what `AppUpdateService.CheckForUpdateAsync()` calls) deliberately excludes drafts and pre-releases. **Never** pass `--draft` or `--prerelease` for a release meant to be picked up by the in-app update checker. If the user wants a draft first to review before going fully live, that's fine — just make sure the final publish step removes draft status, and don't treat a draft as "done" for this skill's purpose.
+   A failed run after a tag push leaves no release behind (the `release` job only runs once both builds succeed) — fix the underlying issue, then either delete and re-push the tag, or push a new patch tag, whichever the user prefers.
 
-   If this is a second/later architecture (e.g. adding an Intel `.dmg` to an existing release), use `gh release upload vX.Y.Z <file>` instead of `create`.
+5. **Verify the release**:
+   ```bash
+   gh release view vX.Y.Z
+   ```
+   Confirm both `Calypsov-X.Y.Z-osx-arm64.dmg` and `Calypsov-X.Y.Z-win-x64-setup.exe` are attached and the release is non-draft/non-prerelease (the workflow's `gh release create` always produces both, per the rule below). The release notes are auto-generated from commits/PRs (`--generate-notes`) — offer to refine them if the user wants more descriptive notes:
+   ```bash
+   gh release edit vX.Y.Z --notes "<better notes>"
+   ```
 
-7. **Verify**: tell the user to open the app's Settings → "About & Updates" → "Check for Updates" on a build running an *older* version than what was just published, and confirm it reports the new version with a working "View Release" link. (A build already at the just-released version will correctly report "You're on the latest version" instead — that's not a failure, just not the update-available path.)
+6. **Verify in-app**: tell the user to open the app's Settings → "About & Updates" → "Check for Updates" on a build running an *older* version than what was just published, and confirm it reports the new version with a working "View Release" link. (A build already at the just-released version will correctly report "You're on the latest version" instead — that's not a failure, just not the update-available path.)
+
+## Testing the pipeline without cutting a release
+
+The workflow also has a `workflow_dispatch` trigger, so the two build jobs can be exercised on demand without pushing a tag or creating a release (the `release` job only runs `if: startsWith(github.ref, 'refs/tags/')`, so a manual dispatch run never publishes anything):
+```bash
+gh workflow run release.yml
+gh run watch <run-id>
+```
+Use this to validate a change to the workflow, `scripts/package-windows.ps1`, or `scripts/windows-installer.iss` before trusting a real tag push to it. The built artifacts can be downloaded from the run for inspection via `gh run download <run-id>`.
 
 ## Notes
 
-- The single source of truth for the version is `Calypsov.csproj`'s `<Version>` property — never hand-edit a version anywhere else (there is nowhere else; `scripts/package-macos.sh` and `AppUpdateService` both read it live).
+- The single source of truth for the version is `Calypsov.csproj`'s `<Version>` property — never hand-edit a version anywhere else. `scripts/package-macos.sh`, `scripts/package-windows.ps1`, and `AppUpdateService` all read it live.
 - `UserInterface/package.json`'s `version` field is intentionally never touched by this process — nothing in the app reads it.
+- Neither build is code-signed (no Apple Developer Program or Windows code-signing certificate configured) — the `.dmg` shows an "unidentified developer" Gatekeeper warning, and the `.exe` installer triggers Windows SmartScreen. Both are known, already-discussed limitations, not bugs to silently try to fix in this skill.
+- `Deployed/` is gitignored — CI builds fresh artifacts every run and uploads them directly as release assets without ever touching the repo. Don't commit anything under `Deployed/` by hand.
 - If a release needs to be pulled after publishing, that's a `gh release delete vX.Y.Z` (and likely `git push --delete origin vX.Y.Z` for the tag) — destructive, so confirm explicitly with the user and don't fold it into a routine release run.

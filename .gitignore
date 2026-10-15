@@ -10,3 +10,7 @@ UserInterface/dist/
 ## OS
 .DS_Store
 Calypsov/UserInterface/node_modules/
+
+## Packaging output (built by scripts/package-macos.sh, package-windows.ps1,
+## and .github/workflows/release.yml — never committed by hand)
+Deployed/
