@@ -6,8 +6,13 @@ namespace Calypsov.Api;
 
 /// <summary>
 /// Shared <c>Try(...)</c> error-wrapper used by every endpoint group — turns any exception into a
-/// JSON <see cref="ErrorResponse"/> with the exact exception message, and logs it via
-/// <see cref="LogService"/> along the way so every endpoint failure ends up in the log file.
+/// JSON <see cref="ErrorResponse"/> with the exact exception message. Only a genuinely unexpected
+/// failure (the final <c>catch (Exception ex)</c>, mapped to 500) gets logged here with its full
+/// stack trace via <see cref="LogService"/> — an <see cref="ArgumentException"/>/
+/// <see cref="InvalidOperationException"/> (400/409) is an expected, correct validation outcome, not
+/// a server fault, and its message is already captured by the per-request logging middleware
+/// (method/path/status/response body) for every call regardless of status code, so logging it a
+/// second time here at <c>[Error]</c> severity with a stack trace would just be misleading noise.
 /// </summary>
 public static class EndpointHelpers
 {
@@ -23,12 +28,10 @@ public static class EndpointHelpers
         }
         catch (ArgumentException ex)
         {
-            LogService?.LogError(ex.ToString());
             return Results.BadRequest(new ErrorResponse(ex.Message));
         }
         catch (InvalidOperationException ex)
         {
-            LogService?.LogError(ex.ToString());
             return Results.Conflict(new ErrorResponse(ex.Message));
         }
         catch (Exception ex)
@@ -46,12 +49,10 @@ public static class EndpointHelpers
         }
         catch (ArgumentException ex)
         {
-            LogService?.LogError(ex.ToString());
             return Results.BadRequest(new ErrorResponse(ex.Message));
         }
         catch (InvalidOperationException ex)
         {
-            LogService?.LogError(ex.ToString());
             return Results.Conflict(new ErrorResponse(ex.Message));
         }
         catch (Exception ex)

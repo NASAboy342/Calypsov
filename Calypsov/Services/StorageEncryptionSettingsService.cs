@@ -109,7 +109,11 @@ public class StorageEncryptionSettingsService : IEncryptionSettingsService
         foreach (var folder in existingTargetFolders)
         {
             if (IsSubFolder(folder, path))
-                throw new Exception($"This folder under an existing configed folder: {folder}. So no need to add it.");
+                // InvalidOperationException, not a plain Exception: the path itself is fine, it just
+                // conflicts with an already-configured target - matches IEncryptionSettingsService's
+                // documented contract ("InvalidOperationException if the path is already configured"),
+                // and EndpointHelpers.Try maps it to 409 Conflict instead of a misleading 500.
+                throw new InvalidOperationException($"This folder under an existing configed folder: {folder}. So no need to add it.");
         }
     }
 
@@ -117,7 +121,10 @@ public class StorageEncryptionSettingsService : IEncryptionSettingsService
     {
         if (profile.EncryptionTargets.Any(t => t.Category == category && t.Path.Equals(path)))
         {
-            throw new Exception("EncryptionTarget already set. Will not add duplicated one");
+            // Same reasoning as the sub-folder check above: the path is already configured, which is
+            // exactly the documented "InvalidOperationException if the path is already configured"
+            // case on IEncryptionSettingsService.AddTarget - maps to 409 Conflict, not 500.
+            throw new InvalidOperationException("EncryptionTarget already set. Will not add duplicated one");
         }
     }
 

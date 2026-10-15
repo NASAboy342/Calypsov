@@ -16,9 +16,9 @@ const activeLinkClass = 'bg-teal-400/10 text-teal-300'
       <img src="/favicon.ico" alt="Calypsov" class="h-8 w-8 shrink-0 rounded-md" />
       <span class="text-base font-semibold tracking-tight text-neutral-100">Calypsov</span>
     </div>
-
+    
     <ProfileSwitcher />
-
+    
     <nav class="flex flex-col gap-1">
       <RouterLink to="/" :class="linkClass" :active-class="activeLinkClass">
         <IconHome class="h-4.5 w-4.5 shrink-0" />
@@ -29,12 +29,13 @@ const activeLinkClass = 'bg-teal-400/10 text-teal-300'
         <span>Settings</span>
       </RouterLink>
     </nav>
-
+    
     <nav class="mt-auto flex flex-col gap-1">
       <RouterLink to="/logs" :class="linkClass" :active-class="activeLinkClass">
         <IconLogs class="h-4.5 w-4.5 shrink-0" />
         <span>Logs</span>
       </RouterLink>
     </nav>
+    
   </aside>
 </template>
