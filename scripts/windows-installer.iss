@@ -11,12 +11,13 @@
 #ifndef AppVersion
   #define AppVersion "0.0.0"
 #endif
-; Fixed once, kept stable across versions so upgrades/uninstalls work correctly.
-#define AppId "{A6F2E4C1-2E6B-4C9B-9B7E-7C9E7D2F5A31}"
 #define PublishDir "..\Calypsov\bin\Release\net8.0\win-x64\publish"
 
 [Setup]
-AppId={#AppId}
+; Fixed once, kept stable across versions so upgrades/uninstalls work correctly.
+; The doubled "{{" escapes Inno's constant syntax - a lone "{" here would make
+; the compiler try (and fail) to resolve the GUID as a named constant.
+AppId={{A6F2E4C1-2E6B-4C9B-9B7E-7C9E7D2F5A31}
 AppName={#AppName}
 AppVersion={#AppVersion}
 AppPublisher={#AppName}
