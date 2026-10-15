@@ -577,7 +577,8 @@ async function handleBrowse() {
             <p class="mt-1 max-w-lg text-xs text-neutral-500">
               When on, the app keeps a record of what it's been doing and any errors it runs into,
               which you can view on the Logs page — kept for the last 4 days, then deleted
-              automatically. Turn this on if you're reporting a problem and want to share what
+              automatically. "Risking expose the file's name that you try to protect".
+              Turn this on only if you're reporting a problem and want to share what
               happened; otherwise it's fine to leave off.
             </p>
           </div>
