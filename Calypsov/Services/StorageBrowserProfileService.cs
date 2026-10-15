@@ -1,6 +1,5 @@
 using System.Runtime.InteropServices;
 using Calypsov.Models;
-using Calypsov.Repositories;
 using Newtonsoft.Json;
 using Newtonsoft.Json.Linq;
 
@@ -8,17 +7,6 @@ namespace Calypsov.Services;
 
 public class StorageBrowserProfileService : IBrowserProfileService
 {
-    private const string SettingsFileName = "browserProfiles.json";
-
-    private readonly ISettingRepository _settingRepository;
-    private Dictionary<BrowserType, string?>? _selections;
-    private readonly object _lock = new();
-
-    public StorageBrowserProfileService(ISettingRepository settingRepository)
-    {
-        _settingRepository = settingRepository;
-    }
-
     public IReadOnlyList<BrowserProfile> GetProfiles(BrowserType browser)
     {
         switch (browser)
@@ -175,61 +163,5 @@ public class StorageBrowserProfileService : IBrowserProfileService
         }
 
         return null;
-    }
-
-    public string? GetSelectedProfileId(BrowserType browser)
-    {
-        lock (_lock)
-        {
-            var selections = GetSelections();
-            return selections.TryGetValue(browser, out var profileId) ? profileId : null;
-        }
-    }
-
-    public void SetSelectedProfileId(BrowserType browser, string? profileId)
-    {
-        lock (_lock)
-        {
-            var selections = GetSelections();
-            selections[browser] = profileId;
-            SaveSelections();
-        }
-    }
-
-    private Dictionary<BrowserType, string?> GetSelections()
-    {
-        if (_selections == null)
-        {
-            LoadSelections();
-        }
-        return _selections!;
-    }
-
-    private void LoadSelections()
-    {
-        _selections = _settingRepository.Load<Dictionary<BrowserType, string?>>(SettingsFileName)
-            ?? new Dictionary<BrowserType, string?>();
-    }
-
-    private void SaveSelections()
-    {
-        _settingRepository.Save(SettingsFileName, _selections!);
-    }
-
-    public Dictionary<BrowserType, BrowserProfile> GetSelectedProfile()
-    {
-        var profiles = new Dictionary<BrowserType, BrowserProfile>();
-        foreach (var selection in GetSelections())
-        {
-            if (selection.Value == null)
-                continue;
-
-            var selectedProfile = GetProfiles(selection.Key).FirstOrDefault(p => p.Id == selection.Value);
-            if (selectedProfile != null)
-            {
-                profiles.Add(selection.Key, selectedProfile);
-            }
-        }
-        return profiles;
     }
 }

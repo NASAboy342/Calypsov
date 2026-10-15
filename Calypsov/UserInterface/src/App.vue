@@ -9,6 +9,7 @@ import { useZipSettingsStore } from '@/stores/zipSettings'
 import { useBrowserProfilesStore } from '@/stores/browserProfiles'
 import { useLogSettingsStore } from '@/stores/logSettings'
 import { useAppSettingEncryptionStore } from '@/stores/appSettingEncryption'
+import { useProfilesStore } from '@/stores/profiles'
 import { BrowserType } from '@/services/browsersApi'
 
 const encryption = useEncryptionStore()
@@ -17,6 +18,7 @@ const zipSettings = useZipSettingsStore()
 const browserProfiles = useBrowserProfilesStore()
 const logSettings = useLogSettingsStore()
 const appSettingEncryption = useAppSettingEncryptionStore()
+const profiles = useProfilesStore()
 
 onMounted(() => {
   encryption.fetchStatus()
@@ -28,6 +30,9 @@ onMounted(() => {
   // "configuration snapshot" has real selection data ready without requiring a Settings visit first.
   browserProfiles.fetchProfiles(BrowserType.Edge)
   browserProfiles.fetchProfiles(BrowserType.Chrome)
+  // Fetched here (not lazily in ProfileSwitcher alone) so the sidebar's current-profile indicator
+  // is populated the moment the app loads, matching the pattern every other app-wide store uses.
+  profiles.fetchProfiles()
 })
 </script>
 

@@ -70,7 +70,8 @@ class Program
         app.UseApiRequestLogging(logService);
 
         app.MapEncryptionEndpoints(serviceProvider.GetRequiredService<IEncryptionSettingsService>());
-        app.MapBrowserEndpoints(serviceProvider.GetRequiredService<IBrowserProfileService>());
+        app.MapBrowserEndpoints(serviceProvider.GetRequiredService<IBrowserProfileService>(), serviceProvider.GetRequiredService<IEncryptionSettingsService>());
+        app.MapProfileEndpoints(serviceProvider.GetRequiredService<IEncryptionSettingsService>());
         app.MapLogEndpoints(logService);
         app.MapAppEndpoints(serviceProvider.GetRequiredService<IAppUpdateService>());
 

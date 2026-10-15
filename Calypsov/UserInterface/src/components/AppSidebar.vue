@@ -3,6 +3,7 @@ import { RouterLink } from 'vue-router'
 import IconHome from './icons/IconHome.vue'
 import IconSettings from './icons/IconSettings.vue'
 import IconLogs from './icons/IconLogs.vue'
+import ProfileSwitcher from './ProfileSwitcher.vue'
 
 const linkClass =
   'flex items-center gap-3 rounded-lg px-3 py-2.5 text-sm font-medium text-neutral-400 transition-colors hover:bg-white/5 hover:text-neutral-100 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-teal-400/40'
@@ -15,6 +16,8 @@ const activeLinkClass = 'bg-teal-400/10 text-teal-300'
       <img src="/favicon.ico" alt="Calypsov" class="h-8 w-8 shrink-0 rounded-md" />
       <span class="text-base font-semibold tracking-tight text-neutral-100">Calypsov</span>
     </div>
+
+    <ProfileSwitcher />
 
     <nav class="flex flex-col gap-1">
       <RouterLink to="/" :class="linkClass" :active-class="activeLinkClass">

@@ -6,10 +6,12 @@ using Microsoft.AspNetCore.Routing;
 
 namespace Calypsov.Api;
 
-/// <summary>Minimal-API routes exposing <see cref="IBrowserProfileService"/> to the UI.</summary>
+/// <summary>Minimal-API routes exposing <see cref="IBrowserProfileService"/> (detection) and the
+/// current protection profile's browser-profile selections (via
+/// <see cref="IEncryptionSettingsService"/>) to the UI.</summary>
 public static class BrowserEndpoints
 {
-    public static void MapBrowserEndpoints(this WebApplication app, IBrowserProfileService browserProfiles)
+    public static void MapBrowserEndpoints(this WebApplication app, IBrowserProfileService browserProfiles, IEncryptionSettingsService settings)
     {
         var group = app.MapGroup("/api/browsers");
 
@@ -17,13 +19,13 @@ public static class BrowserEndpoints
             EndpointHelpers.Try(() => Results.Ok(browserProfiles.GetProfiles(ParseBrowserType(browser)))));
 
         group.MapGet("/{browser}/selection", (string browser) =>
-            EndpointHelpers.Try(() => Results.Ok(new BrowserProfileSelection(browserProfiles.GetSelectedProfileId(ParseBrowserType(browser))))));
+            EndpointHelpers.Try(() => Results.Ok(new BrowserProfileSelection(settings.GetSelectedBrowserProfileId(ParseBrowserType(browser))))));
 
         group.MapPost("/{browser}/selection", (string browser, SetBrowserProfileSelectionRequest request) =>
             EndpointHelpers.Try(() =>
             {
                 var type = ParseBrowserType(browser);
-                browserProfiles.SetSelectedProfileId(type, request.ProfileId);
+                settings.SetSelectedBrowserProfileId(type, request.ProfileId);
                 return Results.Ok(new BrowserProfileSelection(request.ProfileId));
             }));
     }

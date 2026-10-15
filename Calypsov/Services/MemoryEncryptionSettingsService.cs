@@ -6,11 +6,15 @@ namespace Calypsov.Services;
 /// <inheritdoc cref="IEncryptionSettingsService"/>
 public sealed class MemoryEncryptionSettingsService : IEncryptionSettingsService
 {
-    private const string EnabledCacheKey = "encryption:enabled";
-    private const string TargetsCacheKey = "encryption:targets";
     private const string ZipSettingsCacheKey = "encryption:zipSettings";
     private const string IsRecordLogCacheKey = "encryption:isRecordLog";
     private const string IsEncryptAppSettingCacheKey = "encryption:isEncryptAppSetting";
+    private const string ProfilesCacheKey = "encryption:profiles";
+    private const string CurrentProfileIdCacheKey = "encryption:currentProfileId";
+
+    private const string DefaultProfileName = "Default";
+    private const string DefaultProfileColor = "teal";
+    private const string DefaultProfileIcon = "shield";
 
     /// <summary>Shown (and used as the thrown <see cref="InvalidOperationException"/>'s message)
     /// whenever a setting is changed while files are protected.</summary>
@@ -24,6 +28,31 @@ public sealed class MemoryEncryptionSettingsService : IEncryptionSettingsService
         _cache = cache;
     }
 
+    /// <summary>Lazily seeds a single "Default" profile the first time any profile-aware method is
+    /// called, mirroring <see cref="StorageEncryptionSettingsService"/>'s migration-creates-a-
+    /// Default-profile behavior for a brand new install.</summary>
+    private List<ProtectionProfile> GetProfilesUnsafe()
+    {
+        var profiles = _cache.Get<List<ProtectionProfile>>(ProfilesCacheKey);
+        if (profiles == null || profiles.Count == 0)
+        {
+            profiles = new List<ProtectionProfile>
+            {
+                new() { Id = Guid.NewGuid(), Name = DefaultProfileName, Color = DefaultProfileColor, Icon = DefaultProfileIcon },
+            };
+            _cache.Set(ProfilesCacheKey, profiles);
+            _cache.Set(CurrentProfileIdCacheKey, profiles[0].Id);
+        }
+        return profiles;
+    }
+
+    private ProtectionProfile GetCurrentProfileUnsafe()
+    {
+        var profiles = GetProfilesUnsafe();
+        var currentId = _cache.Get<Guid?>(CurrentProfileIdCacheKey) ?? profiles[0].Id;
+        return profiles.FirstOrDefault(p => p.Id == currentId) ?? profiles[0];
+    }
+
     /// <summary>Throws <see cref="InvalidOperationException"/> if files are already encrypted. This
     /// stand-in never has a real encrypt/decrypt run in progress (see <see cref="GetProgress"/>), so
     /// unlike <see cref="StorageEncryptionSettingsService"/> there's no separate in-progress check.</summary>
@@ -35,13 +64,19 @@ public sealed class MemoryEncryptionSettingsService : IEncryptionSettingsService
         }
     }
 
-    public bool IsEncryptionEnabled() => _cache.Get<bool?>(EnabledCacheKey) ?? false;
+    public bool IsEncryptionEnabled()
+    {
+        lock (_lock)
+        {
+            return GetCurrentProfileUnsafe().IsEncrypted;
+        }
+    }
 
     public bool SetEncryptionEnabled(bool enabled)
     {
         lock (_lock)
         {
-            _cache.Set(EnabledCacheKey, enabled);
+            GetCurrentProfileUnsafe().IsEncrypted = enabled;
             return enabled;
         }
     }
@@ -50,9 +85,9 @@ public sealed class MemoryEncryptionSettingsService : IEncryptionSettingsService
     {
         lock (_lock)
         {
-            var next = !IsEncryptionEnabled();
-            _cache.Set(EnabledCacheKey, next);
-            return next;
+            var profile = GetCurrentProfileUnsafe();
+            profile.IsEncrypted = !profile.IsEncrypted;
+            return profile.IsEncrypted;
         }
     }
 
@@ -105,7 +140,7 @@ public sealed class MemoryEncryptionSettingsService : IEncryptionSettingsService
     {
         lock (_lock)
         {
-            return GetTargetsUnsafe().ToList();
+            return GetCurrentProfileUnsafe().EncryptionTargets.ToList();
         }
     }
 
@@ -120,17 +155,16 @@ public sealed class MemoryEncryptionSettingsService : IEncryptionSettingsService
 
         lock (_lock)
         {
-            var targets = GetTargetsUnsafe();
+            var profile = GetCurrentProfileUnsafe();
 
-            var isDuplicate = targets.Any(t => t.Category == category && t.Path == trimmedPath);
+            var isDuplicate = profile.EncryptionTargets.Any(t => t.Category == category && t.Path == trimmedPath);
             if (isDuplicate)
             {
                 throw new InvalidOperationException("That path has already been added.");
             }
 
             var target = new EncryptionTarget(Guid.NewGuid(), category, trimmedPath);
-            targets.Add(target);
-            _cache.Set(TargetsCacheKey, targets);
+            profile.EncryptionTargets.Add(target);
             return target;
         }
     }
@@ -140,16 +174,122 @@ public sealed class MemoryEncryptionSettingsService : IEncryptionSettingsService
         EnsureSettingsAreChangeable();
         lock (_lock)
         {
-            var targets = GetTargetsUnsafe();
-            var removed = targets.RemoveAll(t => t.Id == id) > 0;
-            if (removed)
-            {
-                _cache.Set(TargetsCacheKey, targets);
-            }
-            return removed;
+            return GetCurrentProfileUnsafe().EncryptionTargets.RemoveAll(t => t.Id == id) > 0;
         }
     }
 
-    private List<EncryptionTarget> GetTargetsUnsafe() =>
-        _cache.Get<List<EncryptionTarget>>(TargetsCacheKey) ?? [];
+    public string? GetSelectedBrowserProfileId(BrowserType browser)
+    {
+        lock (_lock)
+        {
+            return GetCurrentProfileUnsafe().BrowserProfileSelections.TryGetValue(browser, out var id) ? id : null;
+        }
+    }
+
+    public string? SetSelectedBrowserProfileId(BrowserType browser, string? profileId)
+    {
+        EnsureSettingsAreChangeable();
+        lock (_lock)
+        {
+            GetCurrentProfileUnsafe().BrowserProfileSelections[browser] = profileId;
+            return profileId;
+        }
+    }
+
+    // --- Protection profiles ---
+
+    public IReadOnlyList<ProtectionProfile> GetProfiles()
+    {
+        lock (_lock)
+        {
+            return GetProfilesUnsafe().ToList();
+        }
+    }
+
+    public Guid GetCurrentProfileId()
+    {
+        lock (_lock)
+        {
+            return GetCurrentProfileUnsafe().Id;
+        }
+    }
+
+    public ProtectionProfile CreateProfile(string name, string color, string icon)
+    {
+        ValidateProfileFields(name, color, icon);
+        EnsureSettingsAreChangeable();
+        lock (_lock)
+        {
+            var profiles = GetProfilesUnsafe();
+            var profile = new ProtectionProfile { Id = Guid.NewGuid(), Name = name, Color = color, Icon = icon };
+            profiles.Add(profile);
+            _cache.Set(CurrentProfileIdCacheKey, profile.Id);
+            return profile;
+        }
+    }
+
+    public ProtectionProfile UpdateProfile(Guid profileId, string name, string color, string icon)
+    {
+        ValidateProfileFields(name, color, icon);
+        lock (_lock)
+        {
+            var profile = FindProfileOrThrow(profileId);
+            profile.Name = name;
+            profile.Color = color;
+            profile.Icon = icon;
+            return profile;
+        }
+    }
+
+    public ProtectionProfile SwitchProfile(Guid profileId)
+    {
+        EnsureSettingsAreChangeable();
+        lock (_lock)
+        {
+            var profile = FindProfileOrThrow(profileId);
+            _cache.Set(CurrentProfileIdCacheKey, profile.Id);
+            return profile;
+        }
+    }
+
+    public void DeleteProfile(Guid profileId)
+    {
+        EnsureSettingsAreChangeable();
+        lock (_lock)
+        {
+            var profiles = GetProfilesUnsafe();
+            var profile = FindProfileOrThrow(profileId);
+            if (profiles.Count <= 1)
+            {
+                throw new ArgumentException("Cannot delete the only remaining profile.");
+            }
+
+            var currentId = _cache.Get<Guid?>(CurrentProfileIdCacheKey);
+            profiles.Remove(profile);
+            if (currentId == profile.Id)
+            {
+                _cache.Set(CurrentProfileIdCacheKey, profiles[0].Id);
+            }
+        }
+    }
+
+    private ProtectionProfile FindProfileOrThrow(Guid profileId)
+    {
+        var profile = GetProfilesUnsafe().FirstOrDefault(p => p.Id == profileId);
+        if (profile == null)
+        {
+            throw new ArgumentException($"No profile found with id \"{profileId}\".");
+        }
+        return profile;
+    }
+
+    private static void ValidateProfileFields(string name, string color, string icon)
+    {
+        if (string.IsNullOrWhiteSpace(name))
+            throw new ArgumentException("Profile name is required.");
+        if (string.IsNullOrWhiteSpace(color))
+            throw new ArgumentException("Profile color is required.");
+        if (string.IsNullOrWhiteSpace(icon))
+            throw new ArgumentException("Profile icon is required.");
+    }
 }

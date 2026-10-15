@@ -12,6 +12,15 @@ public class StorageEncryptionSettingsService : IEncryptionSettingsService
 {
     private const string SettingsFileName = "settings.json";
 
+    /// <summary>Pre-profiles browser-profile-selection file, read exactly once during
+    /// <see cref="MigrateToProfilesIfNeeded"/> and never written to again afterward — selections now
+    /// live on each <see cref="ProtectionProfile"/> instead.</summary>
+    private const string LegacyBrowserProfilesFileName = "browserProfiles.json";
+
+    private const string DefaultProfileName = "Default";
+    private const string DefaultProfileColor = "teal";
+    private const string DefaultProfileIcon = "shield";
+
     /// <summary>Turbo Zip only kicks in once a category has more items than this — below it,
     /// splitting the work across threads isn't worth the overhead.</summary>
     private const int TurboZipFolderThreshold = 20;
@@ -61,13 +70,15 @@ public class StorageEncryptionSettingsService : IEncryptionSettingsService
         }
     }
 
-    /// <summary>Throws <see cref="InvalidOperationException"/> if files are already encrypted. Call
-    /// from inside a setting-mutating method, under <see cref="_lock"/>, alongside
+    /// <summary>Throws <see cref="InvalidOperationException"/> if the profile is already encrypted.
+    /// Call from inside a setting-mutating method, under <see cref="_lock"/>, alongside
     /// <see cref="EnsureNotCurrentlyToggling"/> — together they cover "protected" meaning either
-    /// already encrypted, or an encrypt/decrypt run still in progress.</summary>
-    private static void EnsureNotEncrypted(AppSetting appSetting)
+    /// already encrypted, or an encrypt/decrypt run still in progress. Only the current profile can
+    /// ever be encrypted (switching/creating/deleting profiles is itself blocked while one is), so
+    /// this is always called with <see cref="GetCurrentProfile"/>'s result.</summary>
+    private static void EnsureNotEncrypted(ProtectionProfile profile)
     {
-        if (appSetting.IsEncrypted)
+        if (profile.IsEncrypted)
         {
             throw new InvalidOperationException(SettingsLockedMessage);
         }
@@ -79,21 +90,21 @@ public class StorageEncryptionSettingsService : IEncryptionSettingsService
         var newTargetToAdd = new EncryptionTarget(Guid.NewGuid(), category, path);
         lock (_lock)
         {
-            var appSetting = GetAppSetting();
-            EnsureNotEncrypted(appSetting);
-            CheckIfTargetAlreadyAddBefore(category, path, appSetting);
-            CheckIfTargetIsASubTargetFromExistingTarget(category, path, appSetting);
-            appSetting.EncryptionTargets.Add(newTargetToAdd);
+            var currentProfile = GetCurrentProfile();
+            EnsureNotEncrypted(currentProfile);
+            CheckIfTargetAlreadyAddBefore(category, path, currentProfile);
+            CheckIfTargetIsASubTargetFromExistingTarget(category, path, currentProfile);
+            currentProfile.EncryptionTargets.Add(newTargetToAdd);
             SaveAppSetting();
         }
         return newTargetToAdd;
     }
 
-    private void CheckIfTargetIsASubTargetFromExistingTarget(EnumTargetCategory category, string path, AppSetting appSetting)
+    private void CheckIfTargetIsASubTargetFromExistingTarget(EnumTargetCategory category, string path, ProtectionProfile profile)
     {
         if(category != EnumTargetCategory.Folder)
             return;
-        var existingTargetFolders = appSetting.EncryptionTargets.Where(t => t.Category == EnumTargetCategory.Folder).Select(t => t.Path).ToList();
+        var existingTargetFolders = profile.EncryptionTargets.Where(t => t.Category == EnumTargetCategory.Folder).Select(t => t.Path).ToList();
         AddBrowserProfileFolderToFolderToEncryp(existingTargetFolders);
         foreach (var folder in existingTargetFolders)
         {
@@ -102,9 +113,9 @@ public class StorageEncryptionSettingsService : IEncryptionSettingsService
         }
     }
 
-    private void CheckIfTargetAlreadyAddBefore(EnumTargetCategory category, string path, AppSetting appSetting)
+    private void CheckIfTargetAlreadyAddBefore(EnumTargetCategory category, string path, ProtectionProfile profile)
     {
-        if (appSetting.EncryptionTargets.Any(t => t.Category == category && t.Path.Equals(path)))
+        if (profile.EncryptionTargets.Any(t => t.Category == category && t.Path.Equals(path)))
         {
             throw new Exception("EncryptionTarget already set. Will not add duplicated one");
         }
@@ -133,8 +144,7 @@ public class StorageEncryptionSettingsService : IEncryptionSettingsService
 
     public IReadOnlyList<EncryptionTarget> GetTargets()
     {
-        var appSetting = GetAppSetting();
-        return appSetting.EncryptionTargets;
+        return GetCurrentProfile().EncryptionTargets;
     }
 
     private AppSetting GetAppSetting()
@@ -149,14 +159,58 @@ public class StorageEncryptionSettingsService : IEncryptionSettingsService
     private void LoadAppSetting()
     {
         _appSetting = _settingRepository.Load<AppSetting>(SettingsFileName) ?? new AppSetting();
+        MigrateToProfilesIfNeeded();
+    }
+
+    /// <summary>
+    /// One-time migration for a settings.json written before protection profiles existed (or a
+    /// brand-new install, which hits this same path with an empty AppSetting): folds the old flat
+    /// EncryptionTargets list, the old top-level IsEncrypted flag, and whatever's in the legacy,
+    /// separately-stored browserProfiles.json into a single "Default" profile the user can rename/
+    /// recolor/re-icon like any other - per the decision that existing config becomes the default
+    /// profile. Runs at most once per AppSetting instance: Profiles is non-empty afterward, forever,
+    /// so this is a no-op on every later load.
+    /// </summary>
+    private void MigrateToProfilesIfNeeded()
+    {
+        if (_appSetting!.Profiles.Count > 0)
+            return;
+
+        var legacyBrowserSelections = _settingRepository.Load<Dictionary<BrowserType, string?>>(LegacyBrowserProfilesFileName)
+            ?? new Dictionary<BrowserType, string?>();
+
+        var defaultProfile = new ProtectionProfile
+        {
+            Id = Guid.NewGuid(),
+            Name = DefaultProfileName,
+            Color = DefaultProfileColor,
+            Icon = DefaultProfileIcon,
+            IsEncrypted = _appSetting.IsEncrypted,
+            EncryptionTargets = _appSetting.EncryptionTargets ?? new List<EncryptionTarget>(),
+            BrowserProfileSelections = legacyBrowserSelections,
+        };
+
+        _appSetting.Profiles.Add(defaultProfile);
+        _appSetting.CurrentProfileId = defaultProfile.Id;
+        _appSetting.EncryptionTargets = null;
+        SaveAppSetting();
+    }
+
+    /// <summary>The profile whose targets/browser-profile-selections/encryption state every other
+    /// method operates on. Always succeeds after <see cref="LoadAppSetting"/>'s migration has run at
+    /// least once (which it has by the time this is ever called), since Profiles is never empty and
+    /// CurrentProfileId always points at one of its entries.</summary>
+    private ProtectionProfile GetCurrentProfile()
+    {
+        var appSetting = GetAppSetting();
+        return appSetting.Profiles.First(p => p.Id == appSetting.CurrentProfileId);
     }
 
     public bool IsEncryptionEnabled()
     {
         lock (_lock)
         {
-            var appSetting = GetAppSetting();
-            return appSetting.IsEncrypted;
+            return GetCurrentProfile().IsEncrypted;
         }
     }
 
@@ -165,9 +219,9 @@ public class StorageEncryptionSettingsService : IEncryptionSettingsService
         EnsureNotCurrentlyToggling();
         lock (_lock)
         {
-            var appSetting = GetAppSetting();
-            EnsureNotEncrypted(appSetting);
-            appSetting.EncryptionTargets.RemoveAll(t => t.Id.Equals(id));
+            var currentProfile = GetCurrentProfile();
+            EnsureNotEncrypted(currentProfile);
+            currentProfile.EncryptionTargets.RemoveAll(t => t.Id.Equals(id));
             SaveAppSetting();
         }
         return true;
@@ -182,8 +236,7 @@ public class StorageEncryptionSettingsService : IEncryptionSettingsService
     {
         lock (_lock)
         {
-            var appSetting = GetAppSetting();
-            appSetting.IsEncrypted = enabled;
+            GetCurrentProfile().IsEncrypted = enabled;
             SaveAppSetting();
         }
         return true;
@@ -204,7 +257,7 @@ public class StorageEncryptionSettingsService : IEncryptionSettingsService
         lock (_lock)
         {
             var appSetting = GetAppSetting();
-            EnsureNotEncrypted(appSetting);
+            EnsureNotEncrypted(GetCurrentProfile());
             appSetting.IsUseTurboZip = isUseTurboZip;
             appSetting.IsEncryptZippedFile = isEncryptZippedFile;
             SaveAppSetting();
@@ -227,7 +280,7 @@ public class StorageEncryptionSettingsService : IEncryptionSettingsService
         lock (_lock)
         {
             var appSetting = GetAppSetting();
-            EnsureNotEncrypted(appSetting);
+            EnsureNotEncrypted(GetCurrentProfile());
             appSetting.IsRecordLog = enabled;
             SaveAppSetting();
             return appSetting.IsRecordLog;
@@ -249,7 +302,7 @@ public class StorageEncryptionSettingsService : IEncryptionSettingsService
         lock (_lock)
         {
             var appSetting = GetAppSetting();
-            EnsureNotEncrypted(appSetting);
+            EnsureNotEncrypted(GetCurrentProfile());
             appSetting.IsEncryptAppSetting = enabled;
             SaveAppSetting();
             return appSetting.IsEncryptAppSetting;
@@ -288,8 +341,8 @@ public class StorageEncryptionSettingsService : IEncryptionSettingsService
     {
         lock (_lock)
         {
-            var appSetting = GetAppSetting();
-            if (!appSetting.IsEncrypted)
+            var currentProfile = GetCurrentProfile();
+            if (!currentProfile.IsEncrypted)
             {
                 ProcessEncryption();
             }
@@ -297,10 +350,10 @@ public class StorageEncryptionSettingsService : IEncryptionSettingsService
             {
                 ProcessDecryption();
             }
-            appSetting.IsEncrypted = !appSetting.IsEncrypted;
+            currentProfile.IsEncrypted = !currentProfile.IsEncrypted;
             SaveAppSetting();
+            return currentProfile.IsEncrypted;
         }
-        return GetAppSetting().IsEncrypted;
     }
 
     private void ProcessDecryption()
@@ -385,8 +438,9 @@ public class StorageEncryptionSettingsService : IEncryptionSettingsService
 
     private void ProcessEncryption()
     {
-        var filesToEncryp = GetAppSetting().EncryptionTargets.Where(t => t.Category == EnumTargetCategory.File).Select(t => t.Path).ToList();
-        var foldersToEncryp = GetAppSetting().EncryptionTargets.Where(t => t.Category == EnumTargetCategory.Folder).Select(t => t.Path).ToList();
+        var currentProfileTargets = GetCurrentProfile().EncryptionTargets;
+        var filesToEncryp = currentProfileTargets.Where(t => t.Category == EnumTargetCategory.File).Select(t => t.Path).ToList();
+        var foldersToEncryp = currentProfileTargets.Where(t => t.Category == EnumTargetCategory.Folder).Select(t => t.Path).ToList();
         AddBrowserProfileFolderToFolderToEncryp(foldersToEncryp);
 
         var totalFiles = filesToEncryp.Count(File.Exists)
@@ -527,11 +581,17 @@ public class StorageEncryptionSettingsService : IEncryptionSettingsService
 
     private void AddBrowserProfileFolderToFolderToEncryp(List<string> foldersToEncryp)
     {
-        var profileFolderPaths = _browserProfileService.GetSelectedProfile().Values
-            .Select(p => p.folderPath)
-            .OfType<string>();
+        foreach (var (browser, profileId) in GetCurrentProfile().BrowserProfileSelections)
+        {
+            if (profileId == null)
+                continue;
 
-        foldersToEncryp.AddRange(profileFolderPaths);
+            var matchedProfile = _browserProfileService.GetProfiles(browser).FirstOrDefault(p => p.Id == profileId);
+            if (matchedProfile?.folderPath != null)
+            {
+                foldersToEncryp.Add(matchedProfile.folderPath);
+            }
+        }
     }
 
     public bool CheckIfCanReadFiles(List<string> filePaths)
@@ -675,5 +735,141 @@ public class StorageEncryptionSettingsService : IEncryptionSettingsService
         {
             File.Delete(encrypFilePath);
         }
+    }
+
+    public string? GetSelectedBrowserProfileId(BrowserType browser)
+    {
+        lock (_lock)
+        {
+            var selections = GetCurrentProfile().BrowserProfileSelections;
+            return selections.TryGetValue(browser, out var profileId) ? profileId : null;
+        }
+    }
+
+    public string? SetSelectedBrowserProfileId(BrowserType browser, string? profileId)
+    {
+        EnsureNotCurrentlyToggling();
+        lock (_lock)
+        {
+            var currentProfile = GetCurrentProfile();
+            EnsureNotEncrypted(currentProfile);
+            currentProfile.BrowserProfileSelections[browser] = profileId;
+            SaveAppSetting();
+            return profileId;
+        }
+    }
+
+    // --- Protection profiles ---
+
+    public IReadOnlyList<ProtectionProfile> GetProfiles()
+    {
+        lock (_lock)
+        {
+            return GetAppSetting().Profiles.ToList();
+        }
+    }
+
+    public Guid GetCurrentProfileId()
+    {
+        lock (_lock)
+        {
+            return GetAppSetting().CurrentProfileId;
+        }
+    }
+
+    public ProtectionProfile CreateProfile(string name, string color, string icon)
+    {
+        ValidateProfileFields(name, color, icon);
+        EnsureNotCurrentlyToggling();
+        lock (_lock)
+        {
+            var appSetting = GetAppSetting();
+            EnsureNotEncrypted(GetCurrentProfile());
+
+            var newProfile = new ProtectionProfile
+            {
+                Id = Guid.NewGuid(),
+                Name = name,
+                Color = color,
+                Icon = icon,
+            };
+            appSetting.Profiles.Add(newProfile);
+            appSetting.CurrentProfileId = newProfile.Id;
+            SaveAppSetting();
+            return newProfile;
+        }
+    }
+
+    public ProtectionProfile UpdateProfile(Guid profileId, string name, string color, string icon)
+    {
+        ValidateProfileFields(name, color, icon);
+        lock (_lock)
+        {
+            var profile = FindProfileOrThrow(profileId);
+            profile.Name = name;
+            profile.Color = color;
+            profile.Icon = icon;
+            SaveAppSetting();
+            return profile;
+        }
+    }
+
+    public ProtectionProfile SwitchProfile(Guid profileId)
+    {
+        EnsureNotCurrentlyToggling();
+        lock (_lock)
+        {
+            EnsureNotEncrypted(GetCurrentProfile());
+            var target = FindProfileOrThrow(profileId);
+            GetAppSetting().CurrentProfileId = target.Id;
+            SaveAppSetting();
+            return target;
+        }
+    }
+
+    public void DeleteProfile(Guid profileId)
+    {
+        EnsureNotCurrentlyToggling();
+        lock (_lock)
+        {
+            EnsureNotEncrypted(GetCurrentProfile());
+            var appSetting = GetAppSetting();
+            var target = FindProfileOrThrow(profileId);
+            if (appSetting.Profiles.Count <= 1)
+            {
+                throw new ArgumentException("Cannot delete the only remaining profile.");
+            }
+
+            var wasCurrent = appSetting.CurrentProfileId == target.Id;
+            appSetting.Profiles.Remove(target);
+            if (wasCurrent)
+            {
+                // The deleted profile was active - fall back to the first remaining one so there's
+                // always a valid "current" profile, since every target/browser-selection/encryption
+                // operation assumes one exists.
+                appSetting.CurrentProfileId = appSetting.Profiles[0].Id;
+            }
+            SaveAppSetting();
+        }
+    }
+
+    private ProtectionProfile FindProfileOrThrow(Guid profileId)
+    {
+        var profile = GetAppSetting().Profiles.FirstOrDefault(p => p.Id == profileId);
+        if (profile == null)
+        {
+            throw new ArgumentException($"No profile found with id \"{profileId}\".");
+        }
+        return profile;
+    }
+
+    private static void ValidateProfileFields(string name, string color, string icon)
+    {
+        if (string.IsNullOrWhiteSpace(name))
+            throw new ArgumentException("Profile name is required.");
+        if (string.IsNullOrWhiteSpace(color))
+            throw new ArgumentException("Profile color is required.");
+        if (string.IsNullOrWhiteSpace(icon))
+            throw new ArgumentException("Profile icon is required.");
     }
 }
