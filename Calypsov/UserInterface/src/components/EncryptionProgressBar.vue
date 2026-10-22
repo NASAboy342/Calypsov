@@ -7,7 +7,11 @@ const props = defineProps<{
   progress: EncryptionProgress | null
   /** e.g. "Zipping" or "Restoring" — shown as the card's status label. */
   actionLabel: string
+  /** True while a cancel request is being sent. */
+  cancelling?: boolean
 }>()
+
+const emit = defineEmits<{ cancel: [] }>()
 
 // The very first poll or two can land before the backend has computed a total (or between
 // toggles, before the next run's first progress update lands) — treat that as indeterminate
@@ -105,6 +109,16 @@ function threadPercent(thread: ZipThreadProgress): number {
     <p v-if="isDeterminate && !isFinalizing" class="mt-1.5 text-right text-[11px] font-medium text-neutral-500">
       {{ progress!.completed }} / {{ progress!.total }} items
     </p>
+
+    <button
+      v-if="progress?.canCancel"
+      type="button"
+      class="mt-3 w-full rounded-lg border border-white/10 px-3 py-1.5 text-xs font-semibold text-neutral-300 transition hover:bg-white/5 hover:text-neutral-50 focus-visible:ring-2 focus-visible:ring-teal-400/40 focus-visible:outline-none disabled:cursor-not-allowed disabled:opacity-50"
+      :disabled="cancelling"
+      @click="emit('cancel')"
+    >
+      {{ cancelling ? 'Cancelling…' : 'Cancel' }}
+    </button>
 
     <Transition
       enter-active-class="transition duration-200 ease-out"

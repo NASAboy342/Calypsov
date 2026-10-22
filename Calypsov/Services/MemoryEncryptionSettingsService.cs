@@ -136,6 +136,9 @@ public sealed class MemoryEncryptionSettingsService : IEncryptionSettingsService
     public EncryptionProgress GetProgress() =>
         new(IsRunning: false, Completed: 0, Total: 0, CurrentItem: null, Threads: Array.Empty<ZipThreadProgress>());
 
+    public void CancelEncryption() =>
+        throw new InvalidOperationException("There is no encryption in progress to cancel.");
+
     public IReadOnlyList<EncryptionTarget> GetTargets()
     {
         lock (_lock)

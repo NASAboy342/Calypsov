@@ -31,6 +31,8 @@ export interface EncryptionProgress {
   /** Per-worker breakdown while Turbo Zip is splitting a category across multiple zip parts;
    * empty when running single-threaded. */
   threads: ZipThreadProgress[]
+  /** True only while an encrypt run is still zipping — once it starts deleting originals, cancelling is no longer possible. */
+  canCancel: boolean
 }
 
 export interface ZipSettings {
@@ -50,6 +52,11 @@ export function getStatus() {
 
 export function toggleStatus() {
   return requestJson<EncryptionStatus>(`${BASE_URL}/toggle`, { method: 'POST' })
+}
+
+/** Only valid while `EncryptionProgress.canCancel` is true; the pending toggle request then resolves as not-enabled. */
+export function cancelToggle() {
+  return requestJson<void>(`${BASE_URL}/cancel`, { method: 'POST' })
 }
 
 /** Safe to poll frequently — cheap, read-only snapshot of an in-flight toggle. */

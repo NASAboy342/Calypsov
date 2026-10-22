@@ -1,6 +1,6 @@
 import { ref } from 'vue'
 import { defineStore } from 'pinia'
-import { getStatus, getProgress, toggleStatus, type EncryptionProgress } from '@/services/encryptionApi'
+import { getStatus, getProgress, toggleStatus, cancelToggle, type EncryptionProgress } from '@/services/encryptionApi'
 
 /** How often to poll /progress while a toggle is in flight. */
 const PROGRESS_POLL_INTERVAL_MS = 300
@@ -18,6 +18,8 @@ export const useEncryptionStore = defineStore('encryption', () => {
   const error = ref<string | null>(null)
   /** Latest snapshot from /progress while toggling; null once the toggle finishes. */
   const progress = ref<EncryptionProgress | null>(null)
+  /** True while a cancel request is in flight. */
+  const cancelling = ref(false)
 
   async function fetchStatus() {
     loading.value = true
@@ -60,5 +62,19 @@ export const useEncryptionStore = defineStore('encryption', () => {
     }
   }
 
-  return { enabled, loading, toggling, error, progress, fetchStatus, toggle }
+  /** Asks the backend to abort a zip in progress. The pending toggle() resolves on its own with enabled=false. */
+  async function cancel() {
+    if (!progress.value?.canCancel || cancelling.value) return
+
+    cancelling.value = true
+    try {
+      await cancelToggle()
+    } catch (err) {
+      error.value = toMessage(err, 'Could not cancel.')
+    } finally {
+      cancelling.value = false
+    }
+  }
+
+  return { enabled, loading, toggling, cancelling, error, progress, fetchStatus, toggle, cancel }
 })

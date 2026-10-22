@@ -53,6 +53,13 @@ public interface IEncryptionSettingsService
     /// while <see cref="ToggleEncryption"/> is in flight on another request.</summary>
     EncryptionProgress GetProgress();
 
+    /// <summary>Cancels an encrypt run that is still zipping: the zip files are removed, nothing is
+    /// deleted from its original location, and the in-flight <see cref="ToggleEncryption"/> returns
+    /// <c>false</c> (still unprotected). Throws <see cref="InvalidOperationException"/> if there is
+    /// nothing to cancel — no run in progress, a restore (unzip) run, or the run has already moved on
+    /// to deleting the originals.</summary>
+    void CancelEncryption();
+
     /// <summary>The current profile's configured targets.</summary>
     IReadOnlyList<EncryptionTarget> GetTargets();
 

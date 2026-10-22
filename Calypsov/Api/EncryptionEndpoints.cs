@@ -22,6 +22,13 @@ public static class EncryptionEndpoints
         group.MapGet("/progress", () =>
             EndpointHelpers.Try(() => Results.Ok(settings.GetProgress())));
 
+        group.MapPost("/cancel", () =>
+            EndpointHelpers.Try(() =>
+            {
+                settings.CancelEncryption();
+                return Results.NoContent();
+            }));
+
         group.MapGet("/targets", () =>
             EndpointHelpers.Try(() => Results.Ok(settings.GetTargets())));
 

@@ -48,6 +48,11 @@ public class StorageEncryptionSettingsService : IEncryptionSettingsService
     // under _lockProgress when building the overall EncryptionProgress.
     private readonly ConcurrentDictionary<int, ZipThreadProgress> _threadProgress = new();
 
+    // Cancellation of an in-flight encrypt run. Non-null only while ProcessEncryption() is in its
+    // zipping phase; guarded by _lockProgress (same reasoning as _progress — CancelEncryption()
+    // must never wait on _lock, which ToggleEncryption() holds for the whole run).
+    private CancellationTokenSource? _cancelSource;
+
     public StorageEncryptionSettingsService(ISettingRepository settingRepository, IBrowserProfileService browserProfileService)
     {
         _settingRepository = settingRepository;
@@ -331,7 +336,30 @@ public class StorageEncryptionSettingsService : IEncryptionSettingsService
             IReadOnlyList<ZipThreadProgress> threads = _threadProgress.IsEmpty
                 ? Array.Empty<ZipThreadProgress>()
                 : _threadProgress.Values.OrderBy(t => t.ThreadIndex).ToList();
-            _progress = new EncryptionProgress(isRunning, completed, total, currentItem, threads);
+            _progress = new EncryptionProgress(isRunning, completed, total, currentItem, threads, CanCancel: _cancelSource is { IsCancellationRequested: false });
+        }
+    }
+
+    public void CancelEncryption()
+    {
+        lock (_lockProgress)
+        {
+            if (_cancelSource == null || _cancelSource.IsCancellationRequested)
+            {
+                throw new InvalidOperationException("There is nothing to cancel right now.");
+            }
+            _cancelSource.Cancel();
+            _progress = _progress with { CanCancel = false };
+        }
+    }
+
+    /// <summary>Opens (or, with null, closes) the window in which <see cref="CancelEncryption"/> is allowed.</summary>
+    private void SetCancelSource(CancellationTokenSource? source)
+    {
+        lock (_lockProgress)
+        {
+            _cancelSource = source;
+            _progress = _progress with { CanCancel = source != null };
         }
     }
 
@@ -351,7 +379,16 @@ public class StorageEncryptionSettingsService : IEncryptionSettingsService
             var currentProfile = GetCurrentProfile();
             if (!currentProfile.IsEncrypted)
             {
-                ProcessEncryption();
+                try
+                {
+                    ProcessEncryption();
+                }
+                catch (OperationCanceledException)
+                {
+                    // User cancelled while zipping — everything was already rolled back, so the
+                    // profile simply stays unprotected.
+                    return false;
+                }
             }
             else
             {
@@ -465,10 +502,51 @@ public class StorageEncryptionSettingsService : IEncryptionSettingsService
             SetProgress(isRunning: true, completed: newCompleted, total: totalFiles, currentItem: currentItem);
         }
 
+        using var cancelSource = new CancellationTokenSource();
+        var cancelToken = cancelSource.Token;
+
+        // Cancelling is only possible while zipping: both archives are written first, then (and only
+        // then) the originals are deleted, so a cancel never has to restore anything.
+        void OnFileProcessedUnlessCancelled(string currentItem)
+        {
+            cancelToken.ThrowIfCancellationRequested();
+            OnFileProcessed(currentItem);
+        }
+
         try
         {
-            EncrypFiles(filesToEncryp, OnFileProcessed);
-            EncrypFolders(foldersToEncryp, OnFileProcessed);
+            SetCancelSource(cancelSource);
+            try
+            {
+                EncrypFiles(filesToEncryp, OnFileProcessedUnlessCancelled);
+                EncrypFolders(foldersToEncryp, OnFileProcessedUnlessCancelled);
+                cancelToken.ThrowIfCancellationRequested();
+            }
+            catch (OperationCanceledException)
+            {
+                CleanupEncryptedFilesFile();
+                CleanupEncryptedFolderFile();
+                throw;
+            }
+            finally
+            {
+                // Closing the window before deleting starts means a late cancel request is rejected
+                // instead of racing the deletion.
+                SetCancelSource(null);
+            }
+
+            try
+            {
+                DelectAllTargetFileFromOriginalLocations(filesToEncryp);
+            }
+            catch
+            {
+                // The files were restored by the delete step itself; the folders archive written
+                // before it would otherwise be left behind and block the next run.
+                CleanupEncryptedFolderFile();
+                throw;
+            }
+            DelectAllTargetFolderFromOriginalLocations(foldersToEncryp);
         }
         finally
         {
@@ -506,7 +584,6 @@ public class StorageEncryptionSettingsService : IEncryptionSettingsService
                 throw;
             }
         }
-        DelectAllTargetFolderFromOriginalLocations(foldersToEncryp);
     }
 
     private bool ShouldUseTurboZip(int folderCount) =>
@@ -712,7 +789,6 @@ public class StorageEncryptionSettingsService : IEncryptionSettingsService
                 throw;
             }
         }
-        DelectAllTargetFileFromOriginalLocations(filesToEncryp);
     }
 
     private void DelectAllTargetFileFromOriginalLocations(List<string> filesToEncryp)

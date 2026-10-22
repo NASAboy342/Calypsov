@@ -173,6 +173,8 @@ const statusDescription = computed(() => {
               v-if="encryption.toggling"
               :progress="encryption.progress"
               :action-label="progressActionLabel"
+              :cancelling="encryption.cancelling"
+              @cancel="encryption.cancel()"
             />
             <p v-else class="text-sm font-medium text-neutral-400">
               {{ dialHintLabel }}
