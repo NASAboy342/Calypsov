@@ -103,7 +103,7 @@ class Program
             // Resize to a percentage of the main monitor work area
             //.Resize(50, 50, "%")
             .SetUseOsDefaultSize(false)
-            .SetSize(new Size(1000, 600))
+            .SetSize(new Size(1200, 800))
             // Center window in the middle of the screen
             .Center()
             // Users can resize windows by default.
