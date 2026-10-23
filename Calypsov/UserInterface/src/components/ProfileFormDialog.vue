@@ -99,7 +99,7 @@ function handleSubmit() {
 
             <div>
               <label class="mb-1.5 block text-xs font-semibold text-neutral-400">Icon</label>
-              <div class="flex flex-wrap gap-2">
+              <div class="flex max-h-40 flex-wrap gap-2 overflow-y-auto">
                 <button
                   v-for="option in PROFILE_ICON_OPTIONS"
                   :key="option.key"

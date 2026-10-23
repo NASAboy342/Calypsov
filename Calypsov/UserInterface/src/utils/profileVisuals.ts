@@ -5,6 +5,7 @@ import IconHome from '@/components/icons/IconHome.vue'
 import IconBolt from '@/components/icons/IconBolt.vue'
 import IconGlobe from '@/components/icons/IconGlobe.vue'
 import IconLock from '@/components/icons/IconLock.vue'
+import { EXTRA_PROFILE_ICONS } from '@/utils/profileIconGlyphs'
 
 /**
  * A protection profile's color/icon are opaque strings as far as the backend is concerned — it
@@ -23,6 +24,7 @@ export const PROFILE_ICON_OPTIONS: ProfileIconOption[] = [
   { key: 'bolt', icon: IconBolt },
   { key: 'globe', icon: IconGlobe },
   { key: 'lock', icon: IconLock },
+  ...EXTRA_PROFILE_ICONS,
 ]
 
 const ICON_MAP = new Map(PROFILE_ICON_OPTIONS.map((option) => [option.key, option.icon]))
